@@ -206,3 +206,26 @@ where T: Letter
 }
 
 // FromIterator
+impl<T> FromIterator<T> for Word<T>
+where T: Letter
+{
+    fn from_iter<I>(iter: I) -> Self
+    where I: IntoIterator<Item = T>
+    {
+        Word {
+            container: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl<'a, T> FromIterator<&'a T> for Word<T>
+where T: Letter + Clone + 'a
+{
+    fn from_iter<I>(iter: I) -> Self
+    where I: IntoIterator<Item = &'a T>
+    {
+        Word {
+            container: iter.into_iter().cloned().collect()
+        }
+    }
+}
