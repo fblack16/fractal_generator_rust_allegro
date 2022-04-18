@@ -1,14 +1,14 @@
-use crate::word::Word;
+use std::fmt::Debug;
+use std::hash::Hash;
 
-pub trait Letter {
-    fn combine(&self, other: &Self) -> Word<Self> where Self: Sized;
+pub trait Letter: Debug + PartialEq + Eq + Hash + Copy {
 }
 
 impl Letter for usize {
-    fn combine(&self, other: &Self) -> Word<Self>
-    {
-        let mut word = Word::new();
-        word.push(self + other);
-        word
-    }
+}
+
+impl Letter for char {
+}
+
+impl Letter for fn(i32) -> i32 {
 }
