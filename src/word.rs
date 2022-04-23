@@ -403,4 +403,30 @@ mod tests {
         word_of_chars.apply_replacement_rules(&replacement_rules);
         assert_eq!(word_of_chars, "f+f--f+f--f+f--f+f--f+f--f+f".into());
     }
+
+    #[test]
+    fn test_apply_replacement_rules_functions() {
+        // Note to myself: If you create function pointers (and closures) on the fly,
+        // instead of putting them into first, second and third, this will not work,
+        // since the assertion does not hold, because the call to apply replacement rules
+        // will not detect a replacement for  |x| x+3, since two instances of |x| x+3 are 
+        // NOT considered the same if they are created on the fly, e.g. they will have different
+        // memory addresses, even though they describe the same function.
+        // Thus, you need to save your closures / function pointers in a variable first, and then
+        // use the variable subsequently (which is not a problem since function pointers are copy).
+        // This ensures that you really get the same memory address everywhere and two "instances" 
+        // are considered equal (since they literally are the same function).
+        let first: fn(i32) -> i32 = |x| x+3;
+        let second: fn(i32) -> i32 = |x| x+1;
+        let third: fn(i32) -> i32 = |x| x*x;
+        let functions: Vec<fn(i32) -> i32> = vec![first];
+        let mut word_of_functions: Word<fn(i32) -> i32> = functions.into();
+        let mut replacement_rules: ReplacementRules<Word<fn(i32) -> i32>, Word<fn(i32) -> i32>> = ReplacementRules::new();
+        let to_replace: Vec<fn(i32) -> i32> = vec![first];
+        let replacement: Vec<fn(i32) -> i32> = vec![second, third, first, third, second];
+        let expected = replacement.clone();
+        replacement_rules.insert(to_replace.into(), replacement.into());
+        word_of_functions.apply_replacement_rules(&replacement_rules);
+        assert_eq!(word_of_functions, expected.into());
+    }
 }
