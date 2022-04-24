@@ -12,6 +12,8 @@ where
         container: HashMap<Word<L>, S>,
 }
 
+// IMPL
+
 impl<L, S> Dictionary<L, S>
 where
     L: Letter,
@@ -24,6 +26,8 @@ where
         }
     }
 }
+
+// DEREF
 
 impl<L, S> Deref for Dictionary<L, S>
 where
@@ -43,5 +47,31 @@ where
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.container
+    }
+}
+
+// ITERATOR
+
+impl<'a, L, S> IntoIterator for &'a Dictionary<L, S>
+where
+    L: Letter,
+    S: Semantics,
+{
+    type Item = (&'a Word<L>, &'a S);
+    type IntoIter = std::collections::hash_map::Iter<'a, Word<L>, S>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.container.iter()
+    }
+}
+
+impl<'a, L, S> IntoIterator for &'a mut Dictionary<L, S>
+where
+    L: Letter,
+    S: Semantics,
+{
+    type Item = (&'a Word<L>, &'a mut S);
+    type IntoIter = std::collections::hash_map::IterMut<'a, Word<L>, S>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.container.iter_mut()
     }
 }
