@@ -1,0 +1,20 @@
+Next steps:
+
+- Additional utility for alphabet (From)
+- Additional utility for dictionary (From)
+    - Dictionary may change if I decide to provide Semantics not by an association of words to semantics,
+        but instead implement the Semantics trait directly for the yet to be provided struct Language.
+- Maybe provide a struct Language that encapsulates an alphabet, a dictionary (then only a HashSet of known words)
+    and then implement the semantics trait directly for the Language.
+    - In this case, change the signature of the execute Method to execute(&self, P) where P is a generic type
+        parameter that provides a Payload (for example, an outside struct that captures additional data) that is needed for the
+        semantics.
+- Think again about how to handle Lindenmayer systems that are not context free. In this case, we cannot simply use the current
+    implementation of fractal.apply_semantics. For this case, it would be beneficial to choose the above mentioned approach
+    to provide a Language struct that implements Semantics, because we can then ensure within execute function that the context
+    in which the words appear is taken into account when processing.
+- Think again about how to handle words of functions and how execute is applicable in that case.
+    I think also this case should be handled reasonably well with the above approach and a payload parameter.
+- Think again about the apply_replacement_rules function in word. This currently works just fine for Lindenmayer systems.
+    I also like the idea of treating words of functions similarly, but iteration for such words is usually given by
+    just appending the same function again at the end of the word. This is currently not possible with the current implementation.
