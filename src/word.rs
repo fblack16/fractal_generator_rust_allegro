@@ -3,10 +3,10 @@ use crate::letter::Letter;
 use crate::replacement_rules::ReplacementRules;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct Word<T>
-where T: Letter
+pub struct Word<L>
+where L: Letter
 {
-    container: Vec<T>,
+    container: Vec<L>,
 }
 
 pub enum WordError {
@@ -15,8 +15,8 @@ pub enum WordError {
 
 // DISPLAY
 
-impl<T> std::fmt::Display for Word<T>
-where T: Letter + std::fmt::Display
+impl<L> std::fmt::Display for Word<L>
+where L: Letter + std::fmt::Display
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "Word {{ ")?;
@@ -28,8 +28,8 @@ where T: Letter + std::fmt::Display
     }
 }
 
-impl<T> Word<T>
-where T: Letter
+impl<L> Word<L>
+where L: Letter
 {
     pub fn new() -> Self
     {
@@ -38,18 +38,18 @@ where T: Letter
         }
     }
 
-    pub fn push(&mut self, letter: T)
+    pub fn push(&mut self, letter: L)
     {
         self.container.push(letter);
     }
 
-    pub fn pop(&mut self) -> Option<T>
+    pub fn pop(&mut self) -> Option<L>
     {
         self.container.pop()
     }
 
     // Same as for insert goes for this function.
-    pub fn remove(&mut self, index: usize) -> Result<T, WordError>
+    pub fn remove(&mut self, index: usize) -> Result<L, WordError>
     {
         if index >= self.len() {
             return Err(WordError::IndexOutOfBoundsError { index, len: self.len() })
@@ -61,7 +61,7 @@ where T: Letter
     // This function could be written to not panic 
     // by checking that index <= len first, and then
     // returning a Result instead.
-    pub fn insert(&mut self, index: usize, letter: T) -> Result<(), WordError> {
+    pub fn insert(&mut self, index: usize, letter: L) -> Result<(), WordError> {
         if index > self.len() {
             return Err(WordError::IndexOutOfBoundsError { index, len: self.len() })
         }
@@ -86,11 +86,11 @@ where T: Letter
         Ok(())
     }
 
-    //pub fn as_slice(&self) -> &[T] {
+    //pub fn as_slice(&self) -> &[L] {
     //    self.container.as_slice()
     //}
 
-    //pub fn as_mut_slice(&mut self) -> &mut [T] {
+    //pub fn as_mut_slice(&mut self) -> &mut [L] {
     //    self.container.as_mut_slice()
     //}
 
@@ -141,15 +141,15 @@ where T: Letter
             .collect(); // collect back into the container
     }
 
-    //pub fn extend_from_slice(&mut self, other: &[T])
-    //where T: Clone 
+    //pub fn extend_from_slice(&mut self, other: &[L])
+    //where L: Clone 
     //{
     //    self.container.extend_from_slice(other);
     //}
 
     //pub fn extend_from_within<R>(&mut self, src: R)
     //where 
-    //    T: Clone,
+    //    L: Clone,
     //    R: RangeBounds<usize>,
     //{
     //    self.container.extend_from_within(src);
@@ -158,22 +158,22 @@ where T: Letter
 
 // Deref
 
-// Note to myself: Since we wrap a Vec<T>, and
-// Vec<T> itself derefs to a slice [T], it is probably
-// better to implement Deref for Word<T> with Target = Vec<T>,
-// since this way, you get all the methods of Vec<T> AND [T]
-// for Word<T> implicitly.
+// Note to myself: Since we wrap a Vec<L>, and
+// Vec<L> itself derefs to a slice [L], it is probably
+// better to implement Deref for Word<L> with Target = Vec<L>,
+// since this way, you get all the methods of Vec<L> AND [L]
+// for Word<L> implicitly.
 //
-// Implementing Deref for Word<T> with Target = [T] would
-// be appropriate if you want all methods on [T] implicitly
-// for Word<T>, but you want to implement only a subset of the
-// methods on Vec<T>, since now, you do not implicitly inherit
-// all methods on Vec<T>.
+// Implementing Deref for Word<L> with Target = [L] would
+// be appropriate if you want all methods on [L] implicitly
+// for Word<L>, but you want to implement only a subset of the
+// methods on Vec<L>, since now, you do not implicitly inherit
+// all methods on Vec<L>.
 
-//impl<T> Deref for Word<T>
-//where T: Letter
+//impl<L> Deref for Word<L>
+//where L: Letter
 //{
-//    type Target = [T];
+//    type Target = [L];
 //    fn deref(&self) -> &Self::Target {
 //        Deref::deref(&self.container)
 //    }
@@ -183,10 +183,10 @@ where T: Letter
 // clone method from Vec. This can be confusing if you want to 
 // clone a word, but forget to derive Clone for it, since then,
 // you get a Vec as the return type where you expect a Word.
-impl<T> Deref for Word<T>
-where T: Letter
+impl<L> Deref for Word<L>
+where L: Letter
 {
-    type Target = Vec<T>;
+    type Target = Vec<L>;
     fn deref(&self) -> &Self::Target {
         &self.container
     }
@@ -194,30 +194,40 @@ where T: Letter
 
 // From Implementations to easily create a Word from other Types
 
-impl<T> From<T> for Word<T>
-where T: Letter
+impl<L> From<L> for Word<L>
+where L: Letter
 {
-    fn from(letter: T) -> Self {
+    fn from(letter: L) -> Self {
         Word {
             container: vec![letter],
         }
     }
 }
 
-impl<T> From<Vec<T>> for Word<T>
-where T: Letter
+impl<L> From<Vec<L>> for Word<L>
+where L: Letter
 {
-    fn from(letters: Vec<T>) -> Self {
+    fn from(letters: Vec<L>) -> Self {
         Word {
             container: letters,
         }
     }
 }
 
-impl<T> From<&[T]> for Word<T>
-where T: Letter + Clone
+impl<L> From<&Vec<L>> for Word<L>
+where L: Letter
 {
-    fn from(letters: &[T]) -> Self {
+    fn from(letters: &Vec<L>) -> Self {
+        Word {
+            container: letters.clone(),
+        }
+    }
+}
+
+impl<L> From<&[L]> for Word<L>
+where L: Letter + Clone
+{
+    fn from(letters: &[L]) -> Self {
         let mut container = Vec::new();
         container.extend_from_slice(letters);
         Word {
@@ -238,10 +248,10 @@ impl From<&str> for Word<char>
 // Iterator
 
 // Iterator over values
-impl<T> IntoIterator for Word<T>
-where T: Letter
+impl<L> IntoIterator for Word<L>
+where L: Letter
 {
-    type Item = T;
+    type Item = L;
     type IntoIter = std::vec::IntoIter<Self::Item>;
     fn into_iter(self) -> Self::IntoIter {
         self.container.into_iter()
@@ -256,9 +266,9 @@ where T: Letter
 // type IntoIter: Iterator<Item = Self::Item>
 // Read that as: The chosen specific iterator type for IntoIter
 // needs to iterate over the same type as specified in type Item.
-// In this case here, we only need to put T into std::slice::Iter,
-// and not &'a T, since std::slice::Iter takes its inputs 'a and T 
-// and then determines its type of iteration as &'a T, thus satisfying
+// In this case here, we only need to put L into std::slice::Iter,
+// and not &'a L, since std::slice::Iter takes its inputs 'a and L 
+// and then determines its type of iteration as &'a L, thus satisfying
 // the trait bound on type IntoIter.
 // This is in my opinion not obvious and can lead to confusing bugs 
 // where the compiler complains about said trait bound.
@@ -266,22 +276,22 @@ where T: Letter
 // chosen specific iterator type for IntoIter determines its type 
 // of iteration, and then reverse engineer its input so that its internal
 // type of iteration matches the type you put in type Item.
-impl<'a, T> IntoIterator for &'a Word<T>
-where T: Letter
+impl<'a, L> IntoIterator for &'a Word<L>
+where L: Letter
 {
-    type Item = &'a T;
-    type IntoIter = std::slice::Iter<'a, T>;
+    type Item = &'a L;
+    type IntoIter = std::slice::Iter<'a, L>;
     fn into_iter(self) -> Self::IntoIter {
         self.container.iter()
     }
 }
 
 // Iterator over mutable references
-impl<'a, T> IntoIterator for &'a mut Word<T>
-where T: Letter
+impl<'a, L> IntoIterator for &'a mut Word<L>
+where L: Letter
 {
-    type Item = &'a mut T;
-    type IntoIter = std::slice::IterMut<'a, T>;
+    type Item = &'a mut L;
+    type IntoIter = std::slice::IterMut<'a, L>;
     fn into_iter(self) -> Self::IntoIter {
         self.container.iter_mut()
     }
@@ -290,11 +300,11 @@ where T: Letter
 // FROM_ITERATOR
 
 // Create a word from an interator over Letters
-impl<T> FromIterator<T> for Word<T>
-where T: Letter
+impl<L> FromIterator<L> for Word<L>
+where L: Letter
 {
     fn from_iter<I>(iter: I) -> Self
-    where I: IntoIterator<Item = T>
+    where I: IntoIterator<Item = L>
     {
         Word {
             container: iter.into_iter().collect(),
@@ -303,11 +313,11 @@ where T: Letter
 }
 
 // Create a word from an iterator over Letter references
-impl<'a, T> FromIterator<&'a T> for Word<T>
-where T: Letter + Clone + 'a
+impl<'a, L> FromIterator<&'a L> for Word<L>
+where L: Letter + 'a
 {
     fn from_iter<I>(iter: I) -> Self
-    where I: IntoIterator<Item = &'a T>
+    where I: IntoIterator<Item = &'a L>
     {
         Word {
             container: iter.into_iter().cloned().collect()
@@ -319,11 +329,11 @@ where T: Letter + Clone + 'a
 // to collect an iterator over words into a word.
 //
 // We probably need to call flatten on top level
-//impl<T> FromIterator<Word<T>> for Word<T>
-//where T: Letter
+//impl<L> FromIterator<Word<L>> for Word<L>
+//where L: Letter
 //{
 //    fn from_iter<I>(iter: I) -> Self
-//    where I: IntoIterator<Item = Word<T>>
+//    where I: IntoIterator<Item = Word<L>>
 //    {
 //        Word {
 //            container: iter.into_iter().flatten().map(|word| word.container.as_slice()).collect(),
@@ -424,9 +434,8 @@ mod tests {
         let mut replacement_rules: ReplacementRules<Word<fn(i32) -> i32>, Word<fn(i32) -> i32>> = ReplacementRules::new();
         let to_replace: Vec<fn(i32) -> i32> = vec![first];
         let replacement: Vec<fn(i32) -> i32> = vec![second, third, first, third, second];
-        let expected = replacement.clone();
-        replacement_rules.insert(to_replace.into(), replacement.into());
+        replacement_rules.insert((&to_replace).into(), (&replacement).into());
         word_of_functions.apply_replacement_rules(&replacement_rules);
-        assert_eq!(word_of_functions, expected.into());
+        assert_eq!(word_of_functions, (&replacement).into());
     }
 }
