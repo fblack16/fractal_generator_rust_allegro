@@ -1,14 +1,17 @@
 Next steps:
 
-- Additional utility for alphabet (From)
-- Additional utility for dictionary (From)
+- Additional utility for alphabet (From) (Check)
+- Implement Display trait for alphabet.
+- Additional utility for dictionary (From) (Check)
+- Add Display for dictionary.
     - Dictionary may change if I decide to provide Semantics not by an association of words to semantics,
-        but instead implement the Semantics trait directly for the yet to be provided struct Language.
-- Maybe provide a struct Language that encapsulates an alphabet, a dictionary (then only a HashSet of known words)
+        but instead implement the Semantics trait directly for the yet to be provided struct Language. (Check)
+- Maybe provide a struct Language that encapsulates an alphabet, a dictionary (then only a HashSet of known words (Check))
     and then implement the semantics trait directly for the Language.
     - In this case, change the signature of the execute Method to execute(&self, P) where P is a generic type
         parameter that provides a Payload (for example, an outside struct that captures additional data) that is needed for the
         semantics.
+    - Rewrite fractal.rs after this.
 - Think again about how to handle Lindenmayer systems that are not context free. In this case, we cannot simply use the current
     implementation of fractal.apply_semantics. For this case, it would be beneficial to choose the above mentioned approach
     to provide a Language struct that implements Semantics, because we can then ensure within execute function that the context
