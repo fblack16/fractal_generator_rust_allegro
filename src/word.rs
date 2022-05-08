@@ -86,26 +86,6 @@ where L: Letter
         Ok(())
     }
 
-    //pub fn as_slice(&self) -> &[L] {
-    //    self.container.as_slice()
-    //}
-
-    //pub fn as_mut_slice(&mut self) -> &mut [L] {
-    //    self.container.as_mut_slice()
-    //}
-
-    //pub fn clear(&mut self) {
-    //    self.container.clear();
-    //}
-
-    //pub fn len(&self) -> usize {
-    //    self.container.len()
-    //}
-
-    //pub fn is_empty(&self) -> bool {
-    //    self.container.is_empty()
-    //}
-
     // Splits a word into two words at the given index.
     // Returns a Result with the newly allocated word containing the letters in the range [at, len),
     // or an Err if the given at index is out of bounds.
@@ -140,20 +120,6 @@ where L: Letter
             .flatten()
             .collect(); // collect back into the container
     }
-
-    //pub fn extend_from_slice(&mut self, other: &[L])
-    //where L: Clone 
-    //{
-    //    self.container.extend_from_slice(other);
-    //}
-
-    //pub fn extend_from_within<R>(&mut self, src: R)
-    //where 
-    //    L: Clone,
-    //    R: RangeBounds<usize>,
-    //{
-    //    self.container.extend_from_within(src);
-    //}
 }
 
 // Deref
@@ -169,15 +135,6 @@ where L: Letter
 // for Word<L>, but you want to implement only a subset of the
 // methods on Vec<L>, since now, you do not implicitly inherit
 // all methods on Vec<L>.
-
-//impl<L> Deref for Word<L>
-//where L: Letter
-//{
-//    type Target = [L];
-//    fn deref(&self) -> &Self::Target {
-//        Deref::deref(&self.container)
-//    }
-//}
 
 // Also: If you implement Deref here, you implicitly get the 
 // clone method from Vec. This can be confusing if you want to 
@@ -204,6 +161,22 @@ where L: Letter
     }
 }
 
+// Not sure if we need the next three implementations,
+// as these should be taken care of by the FROM_ITERATOR
+// implementations below.
+
+// Note to myself: You technically do not need them, as you can
+// create e.g. a Word of chars with Word::from_iter(chars) where chars is 
+// some kind of collection that contains chars.
+// BUT: This will not allow you to directly convert from the thing that implements 
+// IntoIterator by calling into() on the thing.
+// As explanation: A vector of characters can be converted to a Word of characters
+// by calling Word::from_iter(vec), but if you try to just use vec.into() to convert 
+// the vec to a word, or if you try to call Word::from(vec), these calls will fail.
+// Thus, it is probably wise to implement From in parallel to FromIterator, to allow
+// as many direct conversions as possible.
+
+// Create a word from a vector of letters.
 impl<L> From<Vec<L>> for Word<L>
 where L: Letter
 {
@@ -214,6 +187,7 @@ where L: Letter
     }
 }
 
+// Create a word from a reference to a vector of letters.
 impl<L> From<&Vec<L>> for Word<L>
 where L: Letter
 {
@@ -224,8 +198,9 @@ where L: Letter
     }
 }
 
+// Create a word from a slice of letters.
 impl<L> From<&[L]> for Word<L>
-where L: Letter + Clone
+where L: Letter
 {
     fn from(letters: &[L]) -> Self {
         let mut container = Vec::new();
@@ -236,7 +211,7 @@ where L: Letter + Clone
     }
 }
 
-// Create a Word of chars from a string slice.
+// Create a word of chars from a string slice.
 impl From<&str> for Word<char>
 {
     fn from(letters: &str) -> Self {
@@ -314,32 +289,16 @@ where L: Letter
 
 // Create a word from an iterator over Letter references
 impl<'a, L> FromIterator<&'a L> for Word<L>
-where L: Letter + 'a
+where L: Letter,
 {
     fn from_iter<I>(iter: I) -> Self
     where I: IntoIterator<Item = &'a L>
     {
         Word {
-            container: iter.into_iter().cloned().collect()
+            container: iter.into_iter().map(|&letter| letter).collect()
         }
     }
 }
-
-// Maybe we need am implementation of FromIterator to be able
-// to collect an iterator over words into a word.
-//
-// We probably need to call flatten on top level
-//impl<L> FromIterator<Word<L>> for Word<L>
-//where L: Letter
-//{
-//    fn from_iter<I>(iter: I) -> Self
-//    where I: IntoIterator<Item = Word<L>>
-//    {
-//        Word {
-//            container: iter.into_iter().flatten().map(|word| word.container.as_slice()).collect(),
-//        }
-//    }
-//}
 
 #[cfg(test)]
 mod tests {
