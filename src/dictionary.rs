@@ -1,77 +1,95 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
 use crate::letter::Letter;
 use crate::word::Word;
-use crate::semantics::Semantics;
 
-pub struct Dictionary<L, S>
+pub struct Dictionary<L>
 where
     L: Letter,
-    S: Semantics,
 {
-        container: HashMap<Word<L>, S>,
+    container: HashSet<Word<L>>,
 }
 
 // IMPL
 
-impl<L, S> Dictionary<L, S>
+impl<L> Dictionary<L>
 where
     L: Letter,
-    S: Semantics,
 {
     pub fn new() -> Self
     {
         Dictionary {
-            container: HashMap::new(),
+            container: HashSet::new(),
         }
     }
 }
 
 // DEREF
 
-impl<L, S> Deref for Dictionary<L, S>
+impl<L> Deref for Dictionary<L>
 where
     L: Letter,
-    S: Semantics,
 {
-    type Target = HashMap<Word<L>, S>;
+    type Target = HashSet<Word<L>>;
     fn deref(&self) -> &Self::Target {
         &self.container
     }
 }
 
-impl<L, S> DerefMut for Dictionary<L, S>
+impl<L> DerefMut for Dictionary<L>
 where
     L: Letter,
-    S: Semantics,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.container
     }
 }
 
-// ITERATOR
+// INTO ITERATOR
 
-impl<'a, L, S> IntoIterator for &'a Dictionary<L, S>
+impl<L> IntoIterator for Dictionary<L>
 where
     L: Letter,
-    S: Semantics,
 {
-    type Item = (&'a Word<L>, &'a S);
-    type IntoIter = std::collections::hash_map::Iter<'a, Word<L>, S>;
+    type Item = Word<L>;
+    type IntoIter = std::collections::hash_set::IntoIter<Word<L>>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.container.into_iter()
+    }
+}
+
+impl<'a, L> IntoIterator for &'a Dictionary<L>
+where
+    L: Letter,
+{
+    type Item = &'a Word<L>;
+    type IntoIter = std::collections::hash_set::Iter<'a, Word<L>>;
     fn into_iter(self) -> Self::IntoIter {
         self.container.iter()
     }
 }
 
-impl<'a, L, S> IntoIterator for &'a mut Dictionary<L, S>
+// FROM ITERATOR
+
+impl<L> FromIterator<Word<L>> for Dictionary<L>
 where
     L: Letter,
-    S: Semantics,
 {
-    type Item = (&'a Word<L>, &'a mut S);
-    type IntoIter = std::collections::hash_map::IterMut<'a, Word<L>, S>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.container.iter_mut()
+    fn from_iter<I: IntoIterator<Item = Word<L>>>(iter: I) -> Self {
+        Dictionary {
+            container: iter.into_iter().collect(),
+        }
+    }
+}
+
+// Create an Alphabet from an itertor over references to letters.
+impl<'a, L> FromIterator<&'a Word<L>> for Dictionary<L>
+where
+    L: Letter,
+{
+    fn from_iter<I: IntoIterator<Item = &'a Word<L>>>(iter: I) -> Self {
+        Dictionary {
+            container: iter.into_iter().map(|word| word.clone()).collect(),
+        }
     }
 }
