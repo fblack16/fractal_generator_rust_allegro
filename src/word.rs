@@ -1,10 +1,12 @@
-use std::ops::Deref;
+use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull};
+use crate::dictionary::Dictionary;
 use crate::letter::Letter;
 use crate::replacement_rules::ReplacementRules;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Word<L>
-where L: Letter
+where 
+    L: Letter
 {
     container: Vec<L>,
 }
@@ -13,7 +15,91 @@ pub enum WordError {
     IndexOutOfBoundsError { index: usize, len: usize },
 }
 
-// DISPLAY
+//****************************************************************************
+//
+// Index Trait Implementation for Word<L>
+//
+//****************************************************************************
+
+// Index into a Word<L> using a usize as index.
+// Return a reference to the letter at this position.
+impl<L> Index<usize> for Word<L>
+where
+    L: Letter,
+{
+    type Output = L;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.container[index]
+    }
+}
+
+// Index into a Word<L> using std::ops::Range as index.
+// Return a slice of letters corresponding to the range.
+impl<L> Index<Range<usize>> for Word<L>
+where
+    L: Letter,
+{
+    type Output = [L];
+    fn index(&self, index: Range<usize>) -> &Self::Output {
+        &self.container[index]
+        //let word = Word::from_iter(&self.container[index]);
+        //&word
+    }
+}
+
+// Index into a Word<L> using std::ops::RangeFrom as index.
+// Return a slice of letters corresponding to the range.
+impl<L> Index<RangeFrom<usize>> for Word<L>
+where
+    L: Letter,
+{
+    type Output = [L];
+    fn index(&self, index: RangeFrom<usize>) -> &Self::Output {
+        &self.container[index]
+    }
+}
+
+// Index into a Word<L> using std::ops::RangeFull as index.
+// Return a slice of letters corresponding to the whole word.
+impl<L> Index<RangeFull> for Word<L>
+where
+    L: Letter,
+{
+    type Output = [L];
+    fn index(&self, index: RangeFull) -> &Self::Output {
+        &self.container[index]
+    }
+}
+
+//****************************************************************************
+//
+// IndexMut Trait Implementation for Word<L>
+//
+//****************************************************************************
+
+impl<L> IndexMut<usize> for Word<L>
+where
+    L: Letter,
+{
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.container[index]
+    }
+}
+
+impl<L> IndexMut<Range<usize>> for Word<L>
+where
+    L: Letter,
+{
+    fn index_mut(&mut self, index: Range<usize>) -> &mut Self::Output {
+        &mut self.container[index]
+    }
+}
+
+//****************************************************************************
+//
+// Display Trait Implementation for Word<L>
+//
+//****************************************************************************
 
 impl<L> std::fmt::Display for Word<L>
 where L: Letter + std::fmt::Display
@@ -29,13 +115,62 @@ where L: Letter + std::fmt::Display
 }
 
 impl<L> Word<L>
-where L: Letter
+where
+    L: Letter
 {
     pub fn new() -> Self
     {
         Word {
             container: Vec::new(),
         }
+    }
+
+    pub fn len(&self) -> usize {
+        self.container.len()
+    }
+
+    pub fn contains_letter(&self, letter: L) -> Option<usize> {
+        for index in 0..self.len() {
+            if self[index] == letter {
+                return Some(index);
+            }
+        }
+        None
+    }
+
+    pub fn first_letter(&self) -> L {
+        self[0]
+    }
+
+    pub fn last_letter(&self) -> L {
+        self[self.len()-1]
+    }
+
+    pub fn contains_word(&self, word: Word<L>) -> Option<Range<usize>> {
+        let mut range = Range { start: 0, end: 1 };
+
+        for index in 0..self.len() {
+            if self[index] == word.first_letter() {
+                let mut contained = true;
+
+                for inner_index in 1..word.len() {
+                    if index + inner_index >= self.len() {
+                        contained = false;
+                        break;
+                    } else if word[inner_index] != self[index + inner_index] {
+                        contained = false;
+                        break;
+                    }
+                }
+
+                if contained == true {
+                    range.start = index;
+                    range.end = index + word.len();
+                    return Some(range);
+                }
+            }
+        }
+        return None;
     }
 
     pub fn push(&mut self, letter: L)
@@ -119,6 +254,35 @@ where L: Letter
             }) // replace the words that have a replacement
             .flatten()
             .collect(); // collect back into the container
+    }
+
+    fn get_first_valid_subword(&self, valid_subwords: &Dictionary<L>) -> Option<Self> {
+        let mut highest_index = 0;
+
+        for index in 1..=self.len() {
+            let word = Word::from(&self[0..index]);
+            if valid_subwords.contains(&word) {
+                highest_index = index;
+            }
+        }
+
+        if highest_index > 0 {
+            return Some(Word::from(&self[0..highest_index]));
+        }
+        None
+    }
+
+    fn get_valid_subwords(&self, valid_subwords: &Dictionary<L>) -> Vec<Self> {
+
+        let mut contained_subwords = Vec::new();
+        let mut next_start = 0;
+
+        while let Some(word) = Word::from(&self[next_start..]).get_first_valid_subword(valid_subwords) {
+            next_start += word.len();
+            contained_subwords.push(word);
+        }
+
+        return contained_subwords;
     }
 }
 
@@ -305,6 +469,49 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_index_usize() {
+        let word = Word::from_iter([1, 2, 3, 4, 5]);
+        assert_eq!(word[0], 1);
+        assert_eq!(word[1], 2);
+        assert_eq!(word[2], 3);
+        assert_eq!(word[3], 4);
+        assert_eq!(word[4], 5);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_usize_panics() {
+        let word = Word::from_iter([1, 2, 3, 4, 5]);
+        let letter = word[5];
+    }
+
+    #[test]
+    fn test_index_range() {
+        let word = Word::from_iter([1, 2, 3, 4, 5]);
+        assert_eq!(word[0..2], [1, 2]);
+        assert_eq!(word[2..5], [3, 4, 5]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_index_range_panics() {
+        let word = Word::from_iter([1, 2, 3, 4, 5]);
+        let slice_of_numbers = &word[4..6];
+    }
+
+    #[test]
+    fn test_index_range_from() {
+        let word = Word::from_iter([1, 2, 3, 4, 5]);
+        assert_eq!(word[2..], [3, 4, 5]);
+    }
+
+    #[test]
+    fn test_index_range_full() {
+        let word = Word::from_iter([1, 2, 3, 4, 5]);
+        assert_eq!(word[..], [1, 2, 3, 4, 5]);
+    }
+
+    #[test]
     fn test_push_and_pop_usize() {
         let numbers = vec![1, 2, 3, 4, 5];
         let mut word = Word::new();
@@ -362,6 +569,83 @@ mod tests {
 
         assert_eq!(format!("{}", word_of_numbers), "Word { 1, 2, 3, 4, 5 }");
         assert_eq!(format!("{}", word_of_chars), "Word { a, b, c, d, e }");
+    }
+
+    #[test]
+    fn test_contains_word() {
+        let numbers = vec![1, 2, 3, 4, 5];
+        let word_of_numbers: Word<_> = numbers.into();
+
+        let word_to_search = Word::from_iter([3, 4]);
+        let optional = word_of_numbers.contains_word(word_to_search);
+        assert!(optional.is_some());
+        assert_eq!(optional.unwrap(), Range { start: 2, end: 4 });
+
+        let word_to_search = Word::from_iter([6]);
+        assert!(word_of_numbers.contains_word(word_to_search).is_none());
+
+        let word_to_search = Word::from_iter([5, 6]);
+        assert!(word_of_numbers.contains_word(word_to_search).is_none());
+    }
+
+    #[test]
+    fn test_get_first_valid_subword_context_free() {
+        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+
+        let first = Word::from_iter([1, 2]);
+        let second = Word::from_iter([3]);
+        let third = Word::from_iter([4, 5]);
+        let fourth = Word::from_iter([6]);
+
+        let valid_subwords = Dictionary::from_iter([first, second, third, fourth]);
+
+        let first_valid_word = word_of_numbers.get_first_valid_subword(&valid_subwords);
+        assert!(first_valid_word.is_some());
+        assert_eq!(first_valid_word.unwrap(), Word::from_iter([1, 2]));
+    }
+
+    #[test]
+    fn test_get_first_valid_subword_context_dependent() {
+        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+
+        let first = Word::from_iter([1, 2]);
+        let second = Word::from_iter([1, 2, 3]);
+
+        let valid_subwords = Dictionary::from_iter([first, second]);
+
+        let first_valid_word = word_of_numbers.get_first_valid_subword(&valid_subwords);
+        assert!(first_valid_word.is_some());
+        assert_eq!(first_valid_word.unwrap(), Word::from_iter([1, 2, 3]));
+    }
+
+    #[test]
+    fn test_get_valid_subwords_context_free() {
+        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+
+        let first = Word::from_iter([1, 2]);
+        let second = Word::from_iter([3]);
+        let third = Word::from_iter([4, 5]);
+        let fourth = Word::from_iter([6]);
+
+        let valid_subwords = Dictionary::from_iter([first.clone(), second.clone(), third.clone(), fourth.clone()]);
+
+        let valid_words = word_of_numbers.get_valid_subwords(&valid_subwords);
+        assert_eq!(valid_words, vec![first, second, third]);
+    }
+
+    #[test]
+    fn test_get_valid_subwords_context_dependent() {
+        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+
+        let first = Word::from_iter([1, 2]);
+        let second = Word::from_iter([1, 2, 3]);
+        let third = Word::from_iter([4, 5]);
+        let fourth = Word::from_iter([6]);
+
+        let valid_subwords = Dictionary::from_iter([first.clone(), second.clone(), third.clone(), fourth.clone()]);
+
+        let valid_words = word_of_numbers.get_valid_subwords(&valid_subwords);
+        assert_eq!(valid_words, vec![second, third]);
     }
 
     #[test]
