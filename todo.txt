@@ -1,23 +1,25 @@
 Next steps:
+- Maybe provide a struct Language that encapsulates an alphabet, a dictionary
+- Maybe absorb the replacement rules and semantics into the dictionary.
+    - Advantage: Less individual fields in fractal to manage, less repetition, since you only need the keys (known words) once.
+    - Maybe provide an intermediate struct that encapsulates the replacement and the semantics for a word.
+        -> Wrap Semantics and Replacement in an Optional
+    - Then, map known words in dictionary directly to this intermediate struct.
 
-- Additional utility for alphabet (From) (Check)
-- Implement Display trait for alphabet.
-- Additional utility for dictionary (From) (Check)
-- Add Display for dictionary.
-    - Dictionary may change if I decide to provide Semantics not by an association of words to semantics,
-        but instead implement the Semantics trait directly for the yet to be provided struct Language. (Check)
-- Maybe provide a struct Language that encapsulates an alphabet, a dictionary (then only a HashSet of known words (Check))
-    and then implement the semantics trait directly for the Language.
-    - In this case, change the signature of the execute Method to execute(&self, P) where P is a generic type
-        parameter that provides a Payload (for example, an outside struct that captures additional data) that is needed for the
-        semantics.
-    - Rewrite fractal.rs after this.
 - Think again about how to handle Lindenmayer systems that are not context free. In this case, we cannot simply use the current
     implementation of fractal.apply_semantics. For this case, it would be beneficial to choose the above mentioned approach
     to provide a Language struct that implements Semantics, because we can then ensure within execute function that the context
-    in which the words appear is taken into account when processing.
+    in which the words appear is taken into account when processing. (Check)
 - Think again about how to handle words of functions and how execute is applicable in that case.
-    I think also this case should be handled reasonably well with the above approach and a payload parameter.
+    I think also this case should be handled reasonably well with the above approach and a payload parameter. (Check)
 - Think again about the apply_replacement_rules function in word. This currently works just fine for Lindenmayer systems.
     I also like the idea of treating words of functions similarly, but iteration for such words is usually given by
     just appending the same function again at the end of the word. This is currently not possible with the current implementation.
+
+Replacement rule: Word<L> -> Optional<Word<L>> ? Only needed if you want to give all known words a replacement rule
+Semantics: function that maps a word to its meaning, but this function needs to know the context in which the word is used.
+
+Example: Letters: F G H 
+F -> Forward
+FG -> Backward
+FH -> Stand Still
