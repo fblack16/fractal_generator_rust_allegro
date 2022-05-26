@@ -1,8 +1,10 @@
 use std::collections::HashSet;
+use std::fmt::Display;
 use crate::letter::Letter;
 use std::ops::{Deref, DerefMut};
 use std::convert::From;
 
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Alphabet<L>
 where
     L: Letter,
@@ -19,6 +21,20 @@ where
         Alphabet {
             container: HashSet::new(),
         }
+    }
+}
+
+impl<L> Display for Alphabet<L>
+where
+    L: Letter + Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Alphabet {{ ")?;
+        for elem in &self.container {
+            write!(f, "{} ", elem)?;
+        }
+        write!(f, "}}")?;
+        Ok(())
     }
 }
 
