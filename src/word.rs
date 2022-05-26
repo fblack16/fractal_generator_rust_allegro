@@ -1,4 +1,4 @@
-use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull};
+use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo, RangeInclusive, RangeToInclusive};
 use crate::dictionary::Dictionary;
 use crate::letter::Letter;
 use crate::replacement_rules::ReplacementRules;
@@ -13,6 +13,28 @@ where
 
 pub enum WordError {
     IndexOutOfBoundsError { index: usize, len: usize },
+}
+
+pub struct SubwordIter<'a, 'b, L>
+where
+    L: Letter,
+{
+    word: &'a [L],
+    allowed_subwords: &'b Dictionary<L>,
+}
+
+impl<'a, 'b, L> Iterator for SubwordIter<'a, 'b, L>
+where
+    L: Letter,
+{
+    type Item = Word<L>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let opt_subword = Word::from(self.word).get_first_valid_subword(self.allowed_subwords);
+        if let Some(ref subword) = opt_subword {
+            self.word = &self.word[subword.len()..];
+        }
+        return opt_subword;
+    }
 }
 
 //****************************************************************************
@@ -59,6 +81,43 @@ where
     }
 }
 
+// Index into a Word<L> using std::ops::RangeTo as index.
+// Return a slice of letters, corresponding to the range.
+
+impl<L> Index<RangeTo<usize>> for Word<L>
+where
+    L: Letter,
+{
+    type Output = [L];
+    fn index(&self, index: RangeTo<usize>) -> &Self::Output {
+        &self.container[index]
+    }
+}
+
+// Index into a Word<L> using std::ops::RangeInclusive as index.
+// Return a slice of letters, corresponding to the range.
+impl<L> Index<RangeInclusive<usize>> for Word<L>
+where
+    L: Letter,
+{
+    type Output = [L];
+    fn index(&self, index: RangeInclusive<usize>) -> &Self::Output {
+        &self.container[index]
+    }
+}
+
+// Index into a Word<L> using std::ops::RangeToInclusive as index.
+// Return a slice of letters, corresponding to the range.
+impl<L> Index<RangeToInclusive<usize>> for Word<L>
+where
+    L: Letter,
+{
+    type Output = [L];
+    fn index(&self, index: RangeToInclusive<usize>) -> &Self::Output {
+        &self.container[index]
+    }
+}
+
 // Index into a Word<L> using std::ops::RangeFull as index.
 // Return a slice of letters corresponding to the whole word.
 impl<L> Index<RangeFull> for Word<L>
@@ -91,6 +150,51 @@ where
     L: Letter,
 {
     fn index_mut(&mut self, index: Range<usize>) -> &mut Self::Output {
+        &mut self.container[index]
+    }
+}
+
+impl<L> IndexMut<RangeFrom<usize>> for Word<L>
+where
+    L: Letter,
+{
+    fn index_mut(&mut self, index: RangeFrom<usize>) -> &mut Self::Output {
+        &mut self.container[index]
+    }
+}
+
+impl<L> IndexMut<RangeTo<usize>> for Word<L>
+where
+    L: Letter,
+{
+    fn index_mut(&mut self, index: RangeTo<usize>) -> &mut Self::Output {
+        &mut self.container[index]
+    }
+}
+
+impl<L> IndexMut<RangeInclusive<usize>> for Word<L>
+where
+    L: Letter,
+{
+    fn index_mut(&mut self, index: RangeInclusive<usize>) -> &mut Self::Output {
+        &mut self.container[index]
+    }
+}
+
+impl<L> IndexMut<RangeToInclusive<usize>> for Word<L>
+where
+    L: Letter,
+{
+    fn index_mut(&mut self, index: RangeToInclusive<usize>) -> &mut Self::Output {
+        &mut self.container[index]
+    }
+}
+
+impl<L> IndexMut<RangeFull> for Word<L>
+where
+    L: Letter,
+{
+    fn index_mut(&mut self, index: RangeFull) -> &mut Self::Output {
         &mut self.container[index]
     }
 }
@@ -256,20 +360,35 @@ where
             .collect(); // collect back into the container
     }
 
-    fn get_first_valid_subword(&self, valid_subwords: &Dictionary<L>) -> Option<Self> {
-        let mut highest_index = 0;
+    // Note: This method assumes that there is no prefix to the first valid subword
+    // that is invalid, that is, if there is a valid subword in the word,
+    // but it is not right at the start, this method will return None.
+    //fn get_first_valid_subword(&self, valid_subwords: &Dictionary<L>) -> Option<Self> {
+    //    let mut highest_index = 0;
 
-        for index in 1..=self.len() {
-            let word = Word::from(&self[0..index]);
-            if valid_subwords.contains(&word) {
-                highest_index = index;
+    //    for index in 1..=self.len() {
+    //        let word = Word::from(&self[0..index]);
+    //        if valid_subwords.contains(&word) {
+    //            highest_index = index;
+    //        }
+    //    }
+
+    //    if highest_index > 0 {
+    //        return Some(Word::from(&self[0..highest_index]));
+    //    }
+    //    None
+    //}
+
+    fn get_first_valid_subword(&self, valid_subwords: &Dictionary<L>) -> Option<Self> {
+
+        for index in (0..self.len()).rev() {
+            let subword = Word::from(&self[..=index]);
+            if valid_subwords.contains(&subword) {
+                return Some(subword);
             }
         }
 
-        if highest_index > 0 {
-            return Some(Word::from(&self[0..highest_index]));
-        }
-        None
+        return None;
     }
 
     fn get_valid_subwords(&self, valid_subwords: &Dictionary<L>) -> Vec<Self> {
@@ -283,6 +402,13 @@ where
         }
 
         return contained_subwords;
+    }
+
+    pub fn subword_iter<'b>(&self, valid_subwords: &'b Dictionary<L>) -> SubwordIter<'_, 'b, L> {
+        SubwordIter {
+            word: &self,
+            allowed_subwords: valid_subwords,
+        }
     }
 }
 
@@ -449,9 +575,7 @@ where L: Letter
             container: iter.into_iter().collect(),
         }
     }
-}
-
-// Create a word from an iterator over Letter references
+} // Create a word from an iterator over Letter references
 impl<'a, L> FromIterator<&'a L> for Word<L>
 where L: Letter,
 {
@@ -646,6 +770,41 @@ mod tests {
 
         let valid_words = word_of_numbers.get_valid_subwords(&valid_subwords);
         assert_eq!(valid_words, vec![second, third]);
+    }
+
+    #[test]
+    fn test_subword_iter_context_free() {
+        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+
+        let first = Word::from_iter([1, 2]);
+        let second = Word::from_iter([3]);
+        let third = Word::from_iter([4, 5]);
+        let fourth = Word::from_iter([6]);
+
+        let valid_subwords = Dictionary::from_iter([first.clone(), second.clone(), third.clone(), fourth.clone()]);
+        let mut subword_iter = word_of_numbers.subword_iter(&valid_subwords);
+
+        assert_eq!(subword_iter.next(), Some(first));
+        assert_eq!(subword_iter.next(), Some(second));
+        assert_eq!(subword_iter.next(), Some(third));
+        assert_eq!(subword_iter.next(), None);
+    }
+
+    #[test]
+    fn test_subword_iter_context_dependent() {
+        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+
+        let first = Word::from_iter([1, 2]);
+        let second = Word::from_iter([1, 2, 3]);
+        let third = Word::from_iter([4, 5]);
+        let fourth = Word::from_iter([6]);
+
+        let valid_subwords = Dictionary::from_iter([first.clone(), second.clone(), third.clone(), fourth.clone()]);
+        let mut subword_iter = word_of_numbers.subword_iter(&valid_subwords);
+
+        assert_eq!(subword_iter.next(), Some(second));
+        assert_eq!(subword_iter.next(), Some(third));
+        assert_eq!(subword_iter.next(), None);
     }
 
     #[test]
