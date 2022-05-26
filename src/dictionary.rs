@@ -1,13 +1,29 @@
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 use crate::letter::Letter;
 use crate::word::Word;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dictionary<L>
 where
     L: Letter,
 {
     container: HashSet<Word<L>>,
+}
+
+impl<L> Display for Dictionary<L>
+where
+    L: Letter + Display
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Dictionary {{ ")?;
+        for word in &self.container {
+            write!(f, "{} ", word)?;
+        }
+        write!(f, "}}")?;
+        Ok(())
+    }
 }
 
 // IMPL
