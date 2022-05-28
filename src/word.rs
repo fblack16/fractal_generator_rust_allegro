@@ -1,4 +1,5 @@
-use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo, RangeInclusive, RangeToInclusive};
+use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo, RangeInclusive, RangeToInclusive, RangeBounds};
+use std::slice::SliceIndex;
 use crate::dictionary::Dictionary;
 use crate::letter::Letter;
 use crate::replacement_rules::ReplacementRules;
@@ -43,89 +44,15 @@ where
 //
 //****************************************************************************
 
-// Index into a Word<L> using a usize as index.
-// Return a reference to the letter at this position.
-impl<L> Index<usize> for Word<L>
+// Index into a Word<L> using any type that implements the RangeBounds Trait.
+// Notably, you can use all of Rust's range types.
+impl<L, I> Index<I> for Word<L>
 where
     L: Letter,
+    I: SliceIndex<[L]>,
 {
-    type Output = L;
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.container[index]
-    }
-}
-
-// Index into a Word<L> using std::ops::Range as index.
-// Return a slice of letters corresponding to the range.
-impl<L> Index<Range<usize>> for Word<L>
-where
-    L: Letter,
-{
-    type Output = [L];
-    fn index(&self, index: Range<usize>) -> &Self::Output {
-        &self.container[index]
-        //let word = Word::from_iter(&self.container[index]);
-        //&word
-    }
-}
-
-// Index into a Word<L> using std::ops::RangeFrom as index.
-// Return a slice of letters corresponding to the range.
-impl<L> Index<RangeFrom<usize>> for Word<L>
-where
-    L: Letter,
-{
-    type Output = [L];
-    fn index(&self, index: RangeFrom<usize>) -> &Self::Output {
-        &self.container[index]
-    }
-}
-
-// Index into a Word<L> using std::ops::RangeTo as index.
-// Return a slice of letters, corresponding to the range.
-
-impl<L> Index<RangeTo<usize>> for Word<L>
-where
-    L: Letter,
-{
-    type Output = [L];
-    fn index(&self, index: RangeTo<usize>) -> &Self::Output {
-        &self.container[index]
-    }
-}
-
-// Index into a Word<L> using std::ops::RangeInclusive as index.
-// Return a slice of letters, corresponding to the range.
-impl<L> Index<RangeInclusive<usize>> for Word<L>
-where
-    L: Letter,
-{
-    type Output = [L];
-    fn index(&self, index: RangeInclusive<usize>) -> &Self::Output {
-        &self.container[index]
-    }
-}
-
-// Index into a Word<L> using std::ops::RangeToInclusive as index.
-// Return a slice of letters, corresponding to the range.
-impl<L> Index<RangeToInclusive<usize>> for Word<L>
-where
-    L: Letter,
-{
-    type Output = [L];
-    fn index(&self, index: RangeToInclusive<usize>) -> &Self::Output {
-        &self.container[index]
-    }
-}
-
-// Index into a Word<L> using std::ops::RangeFull as index.
-// Return a slice of letters corresponding to the whole word.
-impl<L> Index<RangeFull> for Word<L>
-where
-    L: Letter,
-{
-    type Output = [L];
-    fn index(&self, index: RangeFull) -> &Self::Output {
+    type Output = <I as SliceIndex<[L]>>::Output;
+    fn index(&self, index: I) -> &Self::Output {
         &self.container[index]
     }
 }
@@ -136,65 +63,12 @@ where
 //
 //****************************************************************************
 
-impl<L> IndexMut<usize> for Word<L>
+impl<L, I> IndexMut<I> for Word<L>
 where
     L: Letter,
+    I: SliceIndex<[L]>,
 {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.container[index]
-    }
-}
-
-impl<L> IndexMut<Range<usize>> for Word<L>
-where
-    L: Letter,
-{
-    fn index_mut(&mut self, index: Range<usize>) -> &mut Self::Output {
-        &mut self.container[index]
-    }
-}
-
-impl<L> IndexMut<RangeFrom<usize>> for Word<L>
-where
-    L: Letter,
-{
-    fn index_mut(&mut self, index: RangeFrom<usize>) -> &mut Self::Output {
-        &mut self.container[index]
-    }
-}
-
-impl<L> IndexMut<RangeTo<usize>> for Word<L>
-where
-    L: Letter,
-{
-    fn index_mut(&mut self, index: RangeTo<usize>) -> &mut Self::Output {
-        &mut self.container[index]
-    }
-}
-
-impl<L> IndexMut<RangeInclusive<usize>> for Word<L>
-where
-    L: Letter,
-{
-    fn index_mut(&mut self, index: RangeInclusive<usize>) -> &mut Self::Output {
-        &mut self.container[index]
-    }
-}
-
-impl<L> IndexMut<RangeToInclusive<usize>> for Word<L>
-where
-    L: Letter,
-{
-    fn index_mut(&mut self, index: RangeToInclusive<usize>) -> &mut Self::Output {
-        &mut self.container[index]
-    }
-}
-
-impl<L> IndexMut<RangeFull> for Word<L>
-where
-    L: Letter,
-{
-    fn index_mut(&mut self, index: RangeFull) -> &mut Self::Output {
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
         &mut self.container[index]
     }
 }
