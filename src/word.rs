@@ -1,4 +1,4 @@
-use std::ops::{Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeTo, RangeInclusive, RangeToInclusive, RangeBounds};
+use std::ops::{Deref, Index, IndexMut, Range};
 use std::slice::SliceIndex;
 use crate::dictionary::Dictionary;
 use crate::letter::Letter;
@@ -30,7 +30,7 @@ where
 {
     type Item = Word<L>;
     fn next(&mut self) -> Option<Self::Item> {
-        let opt_subword = Word::from(self.word).get_first_valid_subword(self.allowed_subwords);
+        let opt_subword = Word::from(self.word).first_valid_subword(self.allowed_subwords);
         if let Some(ref subword) = opt_subword {
             self.word = &self.word[subword.len()..];
         }
@@ -44,7 +44,7 @@ where
 //
 //****************************************************************************
 
-// Index into a Word<L> using any type that implements the RangeBounds Trait.
+// Index into a Word<L> using any type that implements the SliceIndex<[L]> Trait.
 // Notably, you can use all of Rust's range types.
 impl<L, I> Index<I> for Word<L>
 where
@@ -63,6 +63,8 @@ where
 //
 //****************************************************************************
 
+// Index mutably into a Word<L> using any type that implements the SliceIndex<[L]> trait.
+// Notably, you can use all of Rust's range types.
 impl<L, I> IndexMut<I> for Word<L>
 where
     L: Letter,
@@ -234,32 +236,33 @@ where
             .collect(); // collect back into the container
     }
 
-    // Note: This method assumes that there is no prefix to the first valid subword
-    // that is invalid, that is, if there is a valid subword in the word,
-    // but it is not right at the start, this method will return None.
-    //fn get_first_valid_subword(&self, valid_subwords: &Dictionary<L>) -> Option<Self> {
-    //    let mut highest_index = 0;
+    fn first_valid_subword(&self, valid_subwords: &Dictionary<L>) -> Option<Self> {
 
-    //    for index in 1..=self.len() {
-    //        let word = Word::from(&self[0..index]);
-    //        if valid_subwords.contains(&word) {
-    //            highest_index = index;
-    //        }
-    //    }
+        if self.is_empty() {
+            return None;
+        }
 
-    //    if highest_index > 0 {
-    //        return Some(Word::from(&self[0..highest_index]));
-    //    }
-    //    None
-    //}
+        let mut length_of_subword = 0;
+        let mut subword_found = false;
 
-    fn get_first_valid_subword(&self, valid_subwords: &Dictionary<L>) -> Option<Self> {
-
-        for index in (0..self.len()).rev() {
-            let subword = Word::from(&self[..=index]);
-            if valid_subwords.contains(&subword) {
-                return Some(subword);
+        for index in 0..self.len() {
+            if valid_subwords.contains(&Word::from(&self[0..=index])) {
+                subword_found = true;
+                length_of_subword = index;
+                break;
             }
+        }
+
+        for index in length_of_subword+1..self.len() {
+            if valid_subwords.contains(&Word::from(&self[0..=index])) {
+                length_of_subword = index;
+            } else {
+                break;
+            }
+        }
+
+        if subword_found {
+            return Some(Word::from(&self[..=length_of_subword]));
         }
 
         return None;
@@ -270,7 +273,7 @@ where
         let mut contained_subwords = Vec::new();
         let mut next_start = 0;
 
-        while let Some(word) = Word::from(&self[next_start..]).get_first_valid_subword(valid_subwords) {
+        while let Some(word) = Word::from(&self[next_start..]).first_valid_subword(valid_subwords) {
             next_start += word.len();
             contained_subwords.push(word);
         }
@@ -587,7 +590,51 @@ mod tests {
     }
 
     #[test]
-    fn test_get_first_valid_subword_context_free() {
+    fn test_first_valid_subword_empty() {
+        let word_of_numbers: Word<usize> = Word::new();
+        let first = Word::from_iter([1]);
+        let valid_subwords = Dictionary::from_iter([first]);
+        let first_valid_word = word_of_numbers.first_valid_subword(&valid_subwords);
+        assert!(first_valid_word.is_none());
+    }
+
+    #[test]
+    fn test_first_valid_subword_one_letter() {
+        let word_of_numbers = Word::from_iter([1]);
+        let first = Word::from_iter([1]);
+        let valid_subwords = Dictionary::from_iter([first]);
+        let first_valid_word = word_of_numbers.first_valid_subword(&valid_subwords);
+        assert!(first_valid_word.is_some());
+        assert_eq!(first_valid_word.unwrap(), Word::from_iter([1]));
+    }
+
+    #[test]
+    fn test_first_valid_subword_no_valid_subword() {
+        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+
+        let first = Word::from_iter([1, 2, 3, 4, 5, 6]);
+
+        let valid_subwords = Dictionary::from_iter([first]);
+
+        let first_valid_word = word_of_numbers.first_valid_subword(&valid_subwords);
+        assert!(first_valid_word.is_none());
+    }
+
+    #[test]
+    fn test_first_valid_subword_whole_word_as_subword() {
+        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+
+        let first = Word::from_iter([1, 2, 3, 4, 5]);
+
+        let valid_subwords = Dictionary::from_iter([first]);
+
+        let first_valid_word = word_of_numbers.first_valid_subword(&valid_subwords);
+        assert!(first_valid_word.is_some());
+        assert_eq!(first_valid_word.unwrap(), Word::from_iter([1, 2, 3, 4, 5]));
+    }
+
+    #[test]
+    fn test_first_valid_subword_context_free() {
         let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
 
         let first = Word::from_iter([1, 2]);
@@ -597,13 +644,13 @@ mod tests {
 
         let valid_subwords = Dictionary::from_iter([first, second, third, fourth]);
 
-        let first_valid_word = word_of_numbers.get_first_valid_subword(&valid_subwords);
+        let first_valid_word = word_of_numbers.first_valid_subword(&valid_subwords);
         assert!(first_valid_word.is_some());
         assert_eq!(first_valid_word.unwrap(), Word::from_iter([1, 2]));
     }
 
     #[test]
-    fn test_get_first_valid_subword_context_dependent() {
+    fn test_first_valid_subword_context_dependent() {
         let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
 
         let first = Word::from_iter([1, 2]);
@@ -611,7 +658,7 @@ mod tests {
 
         let valid_subwords = Dictionary::from_iter([first, second]);
 
-        let first_valid_word = word_of_numbers.get_first_valid_subword(&valid_subwords);
+        let first_valid_word = word_of_numbers.first_valid_subword(&valid_subwords);
         assert!(first_valid_word.is_some());
         assert_eq!(first_valid_word.unwrap(), Word::from_iter([1, 2, 3]));
     }
