@@ -1,25 +1,98 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
-use crate::letter::Letter;
+use crate::semantics::Payload;
 use crate::word::Word;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Dictionary<L>
+#[derive(Clone)]
+pub struct Dictionary<T, P: Payload>(HashMap<Word<T>, DictionaryEntry<T, P>>);
+
+#[derive(Clone)]
+pub struct DictionaryEntry<T, P>
 where
-    L: Letter,
+    P: Payload,
 {
-    container: HashSet<Word<L>>,
+    replacement: Option<Word<T>>,
+    semantics: Option<fn(word: &[T], payload: &mut P)>,
 }
 
-impl<L> Display for Dictionary<L>
+impl<T, P> DictionaryEntry<T, P>
 where
-    L: Letter + Display
+    P: Payload,
+{
+    pub fn new() -> Self {
+        DictionaryEntry { replacement: None, semantics: None }
+    }
+
+    pub fn with_replacement(mut self, replacement: Word<T>) -> Self {
+        self.replacement = Some(replacement);
+        self
+    }
+
+    pub fn with_semantics(mut self, semantics: fn(word: &[T], payload: &mut P)) -> Self {
+        self.semantics = Some(semantics);
+        self
+    }
+
+    pub fn clear_replacement(&mut self) {
+        self.replacement = None;
+    }
+
+    pub fn clear_semantics(&mut self) {
+        self.semantics = None;
+    }
+
+    pub fn add_replacement(&mut self, replacement: Word<T>) {
+        self.replacement = Some(replacement);
+    }
+
+    pub fn add_semantics(&mut self, semantics: fn(word: &[T], payload: &mut P)) {
+        self.semantics = Some(semantics);
+    }
+
+    pub fn semantics(&self) -> Option<fn(word: &[T], payload: &mut P)> {
+        self.semantics
+    }
+
+    pub fn replacement(&self) -> Option<&Word<T>> {
+        self.replacement.as_ref()
+    }
+}
+
+impl<T, P> Display for DictionaryEntry<T, P>
+where
+    T: Display,
+    P: Payload,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Dictionary {{ ")?;
-        for word in &self.container {
-            write!(f, "{} ", word)?;
+        let display_replacement = match self.replacement {
+            Some(ref word) => format!("{}", word),
+            None => format!("None"),
+        };
+
+        let display_semantics = match self.semantics {
+            Some(_) => format!("Some"),
+            None => format!("None"),
+        };
+
+        write!(f, "DictionaryEntry {{ replacement: {}, semantics: {} }}", display_replacement, display_semantics)?;
+        Ok(())
+    }
+}
+
+impl<T, P> Display for Dictionary<T, P>
+where
+    T: Display + PartialEq + Eq + std::hash::Hash,
+    P: Payload,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Dictionary {{\n")?;
+        for word in self.keys() {
+            let display_entry = match self.get(word) {
+                Some(entry) => format!("{}", entry),
+                None => format!("None"),
+            };
+            write!(f, "\t{} -> {}\n", word, display_entry)?;
         }
         write!(f, "}}")?;
         Ok(())
@@ -28,84 +101,99 @@ where
 
 // IMPL
 
-impl<L> Dictionary<L>
+impl<T, P> Dictionary<T, P>
 where
-    L: Letter,
+    P: Payload,
 {
     pub fn new() -> Self
     {
-        Dictionary {
-            container: HashSet::new(),
+        Dictionary(HashMap::new())
+    }
+
+    pub fn with_words<I>(iter: I) -> Self
+    where
+        T: PartialEq + Eq + std::hash::Hash,
+        I: IntoIterator<Item = Word<T>>,
+    {
+        let mut dictionary = Dictionary::new();
+        for word in iter.into_iter() {
+            dictionary.insert(word, DictionaryEntry::new());
         }
+        dictionary
+    }
+
+    pub fn with_words_and_entries<I>(iter: I) -> Self
+    where
+        T: PartialEq + Eq + std::hash::Hash,
+        I: IntoIterator<Item = (Word<T>, DictionaryEntry<T, P>)>,
+    {
+        let mut dictionary = Dictionary::new();
+        for (word, entry) in iter.into_iter() {
+            dictionary.insert(word, entry);
+        }
+        dictionary
     }
 }
 
 // DEREF
 
-impl<L> Deref for Dictionary<L>
+impl<T, P> Deref for Dictionary<T, P>
 where
-    L: Letter,
+    P: Payload,
 {
-    type Target = HashSet<Word<L>>;
+    type Target = HashMap<Word<T>, DictionaryEntry<T, P>>;
     fn deref(&self) -> &Self::Target {
-        &self.container
+        &self.0
     }
 }
 
-impl<L> DerefMut for Dictionary<L>
+impl<T, P> DerefMut for Dictionary<T, P>
 where
-    L: Letter,
+    P: Payload,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.container
-    }
-}
-
-// INTO ITERATOR
-
-impl<L> IntoIterator for Dictionary<L>
-where
-    L: Letter,
-{
-    type Item = Word<L>;
-    type IntoIter = std::collections::hash_set::IntoIter<Word<L>>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.container.into_iter()
-    }
-}
-
-impl<'a, L> IntoIterator for &'a Dictionary<L>
-where
-    L: Letter,
-{
-    type Item = &'a Word<L>;
-    type IntoIter = std::collections::hash_set::Iter<'a, Word<L>>;
-    fn into_iter(self) -> Self::IntoIter {
-        self.container.iter()
+        &mut self.0
     }
 }
 
 // FROM ITERATOR
 
-impl<L> FromIterator<Word<L>> for Dictionary<L>
+impl<T, P> FromIterator<Word<T>> for Dictionary<T, P>
 where
-    L: Letter,
+    T: PartialEq + Eq + std::hash::Hash,
+    P: Payload,
 {
-    fn from_iter<I: IntoIterator<Item = Word<L>>>(iter: I) -> Self {
-        Dictionary {
-            container: iter.into_iter().collect(),
-        }
+    fn from_iter<I: IntoIterator<Item = Word<T>>>(iter: I) -> Self {
+        Dictionary(iter.into_iter().map(|word| (word, DictionaryEntry::new())).collect())
     }
 }
 
-// Create an Alphabet from an itertor over references to letters.
-impl<'a, L> FromIterator<&'a Word<L>> for Dictionary<L>
+// Create a dictionary from an iterator over references to words
+impl<'a, T, P> FromIterator<&'a Word<T>> for Dictionary<T, P>
 where
-    L: Letter,
+    T: PartialEq + Eq + std::hash::Hash + Clone,
+    P: Payload,
 {
-    fn from_iter<I: IntoIterator<Item = &'a Word<L>>>(iter: I) -> Self {
-        Dictionary {
-            container: iter.into_iter().map(|word| word.clone()).collect(),
-        }
+    fn from_iter<I: IntoIterator<Item = &'a Word<T>>>(iter: I) -> Self {
+        Dictionary(
+            iter.into_iter().map(
+                |word| (word.clone(), DictionaryEntry::new())
+            ).collect()
+        )
+    }
+}
+
+// Create a dictionary from an iterator over references to slices
+impl<'a, T, P> FromIterator<&'a [T]> for Dictionary<T, P>
+where
+    T: PartialEq + Eq + std::hash::Hash + Clone,
+    P: Payload,
+{
+    fn from_iter<I: IntoIterator<Item = &'a [T]>>(iter: I) -> Self {
+        Dictionary(
+            iter.into_iter().map(
+                |word| (Word::from(word), DictionaryEntry::new())
+            ).collect()
+        )
     }
 }

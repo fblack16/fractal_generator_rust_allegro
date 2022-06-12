@@ -1,63 +1,118 @@
-use crate::letter::Letter;
-use crate::semantics::{Semantics, Payload};
-use crate::word::Word;
-use crate::replacement_rules::ReplacementRules;
-use crate::alphabet::Alphabet;
-use crate::dictionary::Dictionary;
+use std::collections::HashSet;
 
-pub struct Fractal<L, P>
+use crate::word::Word;
+use crate::semantics::Payload;
+use crate::dictionary::{Dictionary, DictionaryEntry};
+
+pub struct Fractal<T, P>
 where
-    L: Letter,
     P: Payload,
 {
-        alphabet: Alphabet<L>, // the recognized letters
-        dictionary: Dictionary<L>, // the words that have semantics, the semantics may be context dependent
-        replacement_rules: ReplacementRules<Word<L>, Word<L>>, // replacement rules for words
-        semantics: Semantics<L, P>, // the semantics for the words
-        starting_word: Word<L>, // the starting word.
+        alphabet: HashSet<T>, // the recognized letters
+        dictionary: Dictionary<T, P>, // the recognized words, comprised of letters from the alphabet, with their possible replacements and semantics
+        starting_word: Word<T>, // the starting word.
+        word_stack: Vec<Word<T>>, // buffer for the iterated words
         payload: P,
 }
 
-impl<L, P> Fractal<L, P>
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub enum Koch {
+    Forward,
+    TurnLeft,
+    TurnRight,
+}
+
+impl std::fmt::Display for Koch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Koch::Forward => write!(f, "F")?,
+            Koch::TurnLeft => write!(f, "+")?,
+            Koch::TurnRight => write!(f, "-")?,
+        }
+        Ok(())
+    }
+}
+
+impl<T, P> Fractal<T, P>
 where
-    L: Letter,
     P: Payload,
 {
     pub fn new(payload: P) -> Self
     {
         Fractal {
-            alphabet: Alphabet::new(),
+            alphabet: HashSet::new(),
             dictionary: Dictionary::new(),
-            replacement_rules: ReplacementRules::new(),
-            semantics: Semantics::new(),
             starting_word: Word::new(),
+            word_stack: Vec::new(),
             payload,
         }
     }
 
-    pub fn apply_replacement_rules(&mut self)
+    // Will fail spectacularly if word_stack[0] is not initialized with the starting word.
+    pub fn apply_replacements(&mut self, iterations: usize)
+    where
+        T: Copy + PartialEq + Eq + std::hash::Hash,
     {
-        self.starting_word.apply_replacement_rules(&self.replacement_rules);
+        if iterations >= self.word_stack.len() {
+            let additional_iterations = iterations - (self.word_stack.len()-1);
+            for _ in 0..additional_iterations {
+                self.word_stack.push(self.word_stack.last().unwrap().apply_replacements(&self.dictionary));
+            }
+        }
     }
 
-    pub fn apply_semantics(&self)
+    pub fn apply_semantics(&mut self)
+    where
+        T: Copy + PartialEq + Eq + std::hash::Hash,
     {
-        // Here lies the problem. We need to iterate over all possible subwords that have
-        // semantics (given by the dictionary) that are contained in starting_word and execute
-        // the semantics. This would work fine as long as the subwords are just words that contain 
-        // exactly one letter, but this will not necessarily be the case, especially not for
-        // context dependent Lindenmayer systems. For these, we would need to start searching for
-        // the longest words that have semantics first, working our way down to words with only one 
-        // letter.
-        // -> We need to sort our Dictionary by the length of the words.
-        //
-        // For now, implement it only for words with a single letter (no context dependent
-        // languages)
-
-        for word in self.starting_word.subword_iter(&self.dictionary) {
-            let action = self.semantics.get(&word).unwrap(); // todo error handling
-            action(&word, &self.payload);
+        if let Some(word) = self.word_stack.last() {
+            word.apply_semantics(&self.dictionary, &mut self.payload);
         }
+    }
+}
+
+pub fn Koch() -> Fractal<Koch, ()> {
+    let alphabet = HashSet::from_iter([Koch::Forward, Koch::TurnLeft, Koch::TurnRight]);
+    let payload = ();
+    let dictionary = Dictionary::with_words_and_entries([
+        (
+            Word::from(Koch::Forward),
+            DictionaryEntry::new()
+                .with_replacement(
+                    Word::from_iter(
+                        [Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward]
+                    )
+                )
+                .with_semantics(
+                    |word, _| println!("{}", Word::<Koch>::from(word)),
+                )
+        ),
+        (
+            Word::from(Koch::TurnLeft),
+            DictionaryEntry::new()
+                .with_semantics(
+                    |word, _| println!("{}", Word::<Koch>::from(word)),
+                )
+        ),
+        (
+            Word::from(Koch::TurnRight),
+            DictionaryEntry::new()
+                .with_semantics(
+                    |word, _| println!("{}", Word::<Koch>::from(word)),
+                )
+        )
+    ]);
+    let starting_word = Word::from_iter(
+        [Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward]
+    );
+    let word_stack = vec![starting_word.clone()];
+
+    Fractal { 
+        alphabet,
+        dictionary,
+        starting_word,
+        word_stack,
+        payload
     }
 }
 
@@ -69,43 +124,25 @@ mod tests {
 
     #[test]
     fn test_apply_replacement_rules() {
-        impl Payload for () {}
-        let mut fractal: Fractal<char, ()> = Fractal::new(());
-        fractal.alphabet.insert('F');
-        fractal.alphabet.insert('+');
-        fractal.alphabet.insert('-');
-
-        fractal.dictionary.insert("F".into());
-        fractal.dictionary.insert("+".into());
-        fractal.dictionary.insert("-".into());
-
-        fractal.replacement_rules.insert("F".into(), "F+F--F+F".into());
-        fractal.semantics.insert("F".into(), |word, payload| {println!("Forward");});
-        fractal.semantics.insert("+".into(), |word, payload| {println!("Turn Left");});
-        fractal.semantics.insert("-".into(), |word, payload| {println!("Turn Right");});
-        fractal.starting_word = "F".into();
-
-        fractal.apply_replacement_rules();
-        assert_eq!(fractal.starting_word, "F+F--F+F".into());
+        let mut koch = Koch();
+        koch.apply_replacements(1);
+        assert_eq!(
+            koch.word_stack[1],
+            Word::from_iter([
+                Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward,
+                Koch::TurnRight,
+                Koch::TurnRight,
+                Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward,
+                Koch::TurnRight,
+                Koch::TurnRight,
+                Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward,
+            ])
+        )
     }
 
     #[test]
     fn test_apply_semantics() {
-        let mut fractal: Fractal<char, ()> = Fractal::new(());
-        fractal.alphabet.insert('F');
-        fractal.alphabet.insert('+');
-        fractal.alphabet.insert('-');
-
-        fractal.dictionary.insert("F".into());
-        fractal.dictionary.insert("+".into());
-        fractal.dictionary.insert("-".into());
-
-        fractal.replacement_rules.insert("F".into(), "F+F--F+F".into());
-        fractal.semantics.insert("F".into(), |word, payload| {println!("Forward");});
-        fractal.semantics.insert("+".into(), |word, payload| {println!("Turn Left");});
-        fractal.semantics.insert("-".into(), |word, payload| {println!("Turn Right");});
-
-        fractal.starting_word = "F".into();
-        fractal.apply_semantics();
+        let mut koch = Koch();
+        koch.apply_semantics();
     }
 }
