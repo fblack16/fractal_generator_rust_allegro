@@ -4,6 +4,7 @@ mod word;
 mod semantics;
 mod dictionary;
 mod fractal;
+mod word_slice;
 
 use allegro::*;
 
