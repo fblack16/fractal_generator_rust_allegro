@@ -7,8 +7,8 @@ pub trait Word {
     fn first_subword(&self, valid_subwords: &[&Self]) -> Option<&Self>;
     fn subwords(&self, valid_subwords: &[&Self]) -> Vec<&Self>;
     fn contains(&self, word: &Self) -> bool;
-    fn apply_relacements(&self, replacements: HashMap<Self::Owned, Self::Owned>) -> Self::Owned;
-    fn apply_semantics<P: Payload>(&self, semantics: HashMap<Self::Owned, fn(&mut P)>, target: &mut P);
+    fn apply_relacements(&self, replacements: &HashMap<Self::Owned, Self::Owned>) -> Self::Owned;
+    fn apply_semantics<P: Payload>(&self, semantics: &HashMap<Self::Owned, fn(&mut P)>, target: &mut P);
 }
 
 impl<T> Word for [T]
@@ -63,7 +63,7 @@ where
         return is_contained;
     }
 
-    fn apply_relacements(&self, replacements: HashMap<Self::Owned, Self::Owned>) -> Self::Owned {
+    fn apply_relacements(&self, replacements: &HashMap<Self::Owned, Self::Owned>) -> Self::Owned {
         let valid_subwords: Vec<&Self> = replacements.keys().map(|word| &word[..]).collect();
         let word = self.subwords(&valid_subwords[..]).into_iter()
             .map(|word| {
@@ -79,7 +79,7 @@ where
         word
     }
 
-    fn apply_semantics<P: Payload>(&self, semantics: HashMap<Self::Owned, fn(&mut P)>, target: &mut P) {
+    fn apply_semantics<P: Payload>(&self, semantics: &HashMap<Self::Owned, fn(&mut P)>, target: &mut P) {
         let valid_subwords: Vec<&Self> = semantics.keys().map(|word| &word[..]).collect();
         for word in self.subwords(&valid_subwords[..]){
             if let Some(action) = semantics.get(word) {
