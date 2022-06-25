@@ -1,17 +1,16 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
+use std::hash::Hash;
 
-use crate::word::Word;
-use crate::semantics::Payload;
-use crate::dictionary::{Dictionary, DictionaryEntry};
+use crate::{semantics::Payload, word_slice::Word};
 
 pub struct Fractal<T, P>
 where
     P: Payload,
+    T: Clone + PartialEq + Eq + Hash,
 {
-        alphabet: HashSet<T>, // the recognized letters
-        dictionary: Dictionary<T, P>, // the recognized words, comprised of letters from the alphabet, with their possible replacements and semantics
-        starting_word: Word<T>, // the starting word.
-        word_stack: Vec<Word<T>>, // buffer for the iterated words
+        word_stack: Vec<Vec<T>>,
+        replacements: HashMap<Vec<T>, Vec<T>>,
+        semantics: HashMap<Vec<T>, fn(&mut P)>,
         payload: P,
 }
 
@@ -36,83 +35,87 @@ impl std::fmt::Display for Koch {
 impl<T, P> Fractal<T, P>
 where
     P: Payload,
+    T: Clone + PartialEq + Eq + Hash,
 {
     pub fn new(payload: P) -> Self
     {
         Fractal {
-            alphabet: HashSet::new(),
-            dictionary: Dictionary::new(),
-            starting_word: Word::new(),
-            word_stack: Vec::new(),
+            word_stack: vec![],
+            replacements: HashMap::new(),
+            semantics: HashMap::new(),
             payload,
         }
     }
 
-    // Will fail spectacularly if word_stack[0] is not initialized with the starting word.
-    pub fn apply_replacements(&mut self, iterations: usize)
-    where
-        T: Copy + PartialEq + Eq + std::hash::Hash,
+    pub fn with_starting_word(&mut self, starting_word: Vec<T>)
     {
-        if iterations >= self.word_stack.len() {
-            let additional_iterations = iterations - (self.word_stack.len()-1);
-            for _ in 0..additional_iterations {
-                self.word_stack.push(self.word_stack.last().unwrap().apply_replacements(&self.dictionary));
-            }
-        }
+        self.word_stack[0] = starting_word;
     }
 
-    pub fn apply_semantics(&mut self)
-    where
-        T: Copy + PartialEq + Eq + std::hash::Hash,
+    pub fn apply_replacements(&mut self)
     {
-        if let Some(word) = self.word_stack.last() {
-            word.apply_semantics(&self.dictionary, &mut self.payload);
+        self.word_stack.push(
+            self.word_stack
+                .last()
+                .unwrap()
+                .apply_relacements(&self.replacements)
+        );
+    }
+
+    pub fn iteration(&mut self, depth: usize) -> &[T]
+    {
+        while self.word_stack.len() <= depth {
+            self.apply_replacements();
         }
+        return self.word_stack[depth].as_slice();
+    }
+
+    pub fn apply_semantics(&mut self, depth: usize)
+    {
+        self.word_stack[depth].apply_semantics(&self.semantics, &mut self.payload);
     }
 }
 
-pub fn Koch() -> Fractal<Koch, ()> {
-    let alphabet = HashSet::from_iter([Koch::Forward, Koch::TurnLeft, Koch::TurnRight]);
-    let payload = ();
-    let dictionary = Dictionary::with_words_and_entries([
-        (
-            Word::from(Koch::Forward),
-            DictionaryEntry::new()
-                .with_replacement(
-                    Word::from_iter(
-                        [Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward]
-                    )
-                )
-                .with_semantics(
-                    |word, _| println!("{}", Word::<Koch>::from(word)),
-                )
-        ),
-        (
-            Word::from(Koch::TurnLeft),
-            DictionaryEntry::new()
-                .with_semantics(
-                    |word, _| println!("{}", Word::<Koch>::from(word)),
-                )
-        ),
-        (
-            Word::from(Koch::TurnRight),
-            DictionaryEntry::new()
-                .with_semantics(
-                    |word, _| println!("{}", Word::<Koch>::from(word)),
-                )
-        )
-    ]);
-    let starting_word = Word::from_iter(
-        [Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward]
+pub fn Koch(payload: String) -> Fractal<Koch, String>
+{
+    let word_stack = vec![
+        vec![Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward],
+    ];
+
+    let mut replacements = HashMap::new();
+    replacements.insert(
+        vec![Koch::Forward],
+        vec![Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward]
     );
-    let word_stack = vec![starting_word.clone()];
+
+    let mut semantics: HashMap<Vec<Koch>, fn(&mut String)> = HashMap::new();
+    semantics.insert(
+        vec![Koch::Forward],
+        |s| {
+            let to_push = format!("{}", Koch::Forward);
+            s.push_str(&to_push);
+        }
+    );
+    semantics.insert(
+        vec![Koch::TurnLeft],
+        |s| {
+            let to_push = format!("{}", Koch::TurnLeft);
+            s.push_str(&to_push);
+        }
+    );
+    semantics.insert(
+        vec![Koch::TurnRight],
+        |s| {
+            let to_push = format!("{}", Koch::TurnRight);
+            s.push_str(&to_push);
+        }
+    );
 
     Fractal { 
-        alphabet,
-        dictionary,
-        starting_word,
         word_stack,
-        payload
+        replacements,
+        semantics,
+        payload,
     }
 }
 
@@ -120,29 +123,37 @@ pub fn Koch() -> Fractal<Koch, ()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
-    #[test]
-    fn test_apply_replacement_rules() {
-        let mut koch = Koch();
-        koch.apply_replacements(1);
-        assert_eq!(
-            koch.word_stack[1],
-            Word::from_iter([
-                Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward,
-                Koch::TurnRight,
-                Koch::TurnRight,
-                Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward,
-                Koch::TurnRight,
-                Koch::TurnRight,
-                Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward,
-            ])
-        )
+    mod apply_replacements {
+        use crate::fractal::Koch;
+
+        #[test]
+        fn koch() {
+            let mut koch = Koch(String::new());
+            koch.apply_replacements();
+            assert_eq!(
+                koch.word_stack[1],
+                vec![
+                    Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward,
+                    Koch::TurnRight,
+                    Koch::TurnRight,
+                    Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward,
+                    Koch::TurnRight,
+                    Koch::TurnRight,
+                    Koch::Forward, Koch::TurnLeft, Koch::Forward, Koch::TurnRight, Koch::TurnRight, Koch::Forward, Koch::TurnLeft, Koch::Forward      
+                ]
+            );
+        }
     }
 
-    #[test]
-    fn test_apply_semantics() {
-        let mut koch = Koch();
-        koch.apply_semantics();
+    mod apply_semantics {
+        use crate::fractal::Koch;
+
+        #[test]
+        fn koch() {
+            let mut koch = Koch(String::new());
+            koch.apply_semantics(0);
+            assert_eq!(koch.payload, "F--F--F");
+        }
     }
 }
