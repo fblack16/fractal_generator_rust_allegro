@@ -1,12 +1,14 @@
 use std::{collections::HashMap, hash::Hash};
 
+use crate::semantics::Payload;
+
 pub trait Word {
     type Owned;
     fn first_subword(&self, valid_subwords: &[&Self]) -> Option<&Self>;
     fn subwords(&self, valid_subwords: &[&Self]) -> Vec<&Self>;
     fn contains(&self, word: &Self) -> bool;
     fn apply_relacements(&self, replacements: HashMap<Self::Owned, Self::Owned>) -> Self::Owned;
-    fn apply_semantics(&self, semantics: HashMap<Self::Owned, fn(&Self)>);
+    fn apply_semantics<P: Payload>(&self, semantics: HashMap<Self::Owned, fn(&mut P)>, target: &mut P);
 }
 
 impl<T> Word for [T]
@@ -77,11 +79,11 @@ where
         word
     }
 
-    fn apply_semantics(&self, semantics: HashMap<Self::Owned, fn(&Self)>) {
+    fn apply_semantics<P: Payload>(&self, semantics: HashMap<Self::Owned, fn(&mut P)>, target: &mut P) {
         let valid_subwords: Vec<&Self> = semantics.keys().map(|word| &word[..]).collect();
         for word in self.subwords(&valid_subwords[..]){
             if let Some(action) = semantics.get(word) {
-                action(word);
+                action(target);
             }
         }
     }
