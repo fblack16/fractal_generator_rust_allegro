@@ -7,10 +7,12 @@ mod fractal;
 mod word_slice;
 
 use allegro::*;
+use allegro_primitives::*;
 
 allegro_main!
 {
     let core = Core::init().unwrap();
+    let primitives = PrimitivesAddon::init(&core).unwrap();
 
     let display = Display::new(&core, 800, 600).unwrap();
     let timer = Timer::new(&core, 1.0 / 60.0).unwrap();
@@ -26,6 +28,7 @@ allegro_main!
         if redraw && queue.is_empty()
         {
             core.clear_to_color(Color::from_rgb_f(0.0, 0.0, 0.0));
+            primitives.draw_triangle(0.0, 0.0, 20.0, 0.0, 0.0, 20.0, Color::from_rgb_f(1.0, 0.0, 0.0), 2.0);
             core.flip_display();
             redraw = false;
         }

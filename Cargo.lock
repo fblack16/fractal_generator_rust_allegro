@@ -4,9 +4,9 @@ version = 3
 
 [[package]]
 name = "allegro"
-version = "0.0.42"
+version = "0.0.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35c104d86a3d7aed1d2075d53db65cc0e4bd2f92c2addfbc573b281569585816"
+checksum = "087b801a25679003bad3938ec9a9d2c26ba4a2d1c0e15a7ba83854f30b37b269"
 dependencies = [
  "allegro-sys",
  "allegro_util",
@@ -16,19 +16,42 @@ dependencies = [
 
 [[package]]
 name = "allegro-sys"
-version = "0.0.42"
+version = "0.0.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f86a681bddaa3894e263bd5d8e0c7731a3220c8031f354275fdf18b25a35ba7"
+checksum = "4134d22bdb490694658cc3fb18610624e7e29e25abfee214d2a58fee3d86e41a"
 dependencies = [
  "allegro_util",
  "libc",
 ]
 
 [[package]]
-name = "allegro_util"
-version = "0.0.42"
+name = "allegro_primitives"
+version = "0.0.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d11f7c98ba18e4cd0dc5c95e7ba0fedb1f2eaa53d06e3995ae5ad03a49d9c947"
+checksum = "d897f4767943a14464fdf0b51ac62ae8a455390ea835be44068e5bffc5bfd8ca"
+dependencies = [
+ "allegro",
+ "allegro-sys",
+ "allegro_primitives-sys",
+ "libc",
+]
+
+[[package]]
+name = "allegro_primitives-sys"
+version = "0.0.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d75c5fe48d535485ba9fa71eb131cf98c72ad16f2b7a0b7d6e27c88b9bd2ecc3"
+dependencies = [
+ "allegro-sys",
+ "allegro_util",
+ "libc",
+]
+
+[[package]]
+name = "allegro_util"
+version = "0.0.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bfb00c8bf39072c58915edbc59276392c05920b6fc5ffcc13984cd7328a1fad0"
 dependencies = [
  "libc",
 ]
@@ -38,6 +61,7 @@ name = "fractal_generator_rust_allegro"
 version = "0.1.0"
 dependencies = [
  "allegro",
+ "allegro_primitives",
 ]
 
 [[package]]
