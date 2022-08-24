@@ -6,12 +6,16 @@ mod dictionary;
 mod fractal;
 mod word_slice;
 
+mod coordinates;
+
 use allegro::*;
 use allegro_primitives::*;
 
+use coordinates::MathPosition;
+use coordinates::ScreenPosition;
+
 const DISPLAY_WIDTH: i32 = 1200;
 const DISPLAY_HEIGHT: i32 = 800;
-const A: f32 = std::f32::consts::PI * (1.0 / 3.0); // 60.0 degrees for Koch Fractal
 const S: f32 = 50.0;
 
 // user defines an enum, specifiying operations
@@ -48,12 +52,11 @@ impl Operation for K {
     fn apply(&self, vertex_buffer: &mut Vec<MathPosition>, current_pos: &mut MathPosition, current_angle: &mut f32) {
         match self {
             K::F => {
-                current_pos.x += current_angle.cos();
-                current_pos.y += current_angle.sin();
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
                 vertex_buffer.push(*current_pos);
             },
-            K::R => { *current_angle -= A; },
-            K::L => { *current_angle += A; },
+            K::R => { *current_angle -= 120.0f32; },
+            K::L => { *current_angle += 120.0f32; },
         }
     }
 }
@@ -62,8 +65,7 @@ impl Operation for Levy {
     fn apply(&self, vertex_buffer: &mut Vec<MathPosition>, current_pos: &mut MathPosition, current_angle: &mut f32) {
         match self {
             Levy::F => {
-                current_pos.x += current_angle.cos();
-                current_pos.y += current_angle.sin();
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
                 vertex_buffer.push(*current_pos);
             },
             Levy::R => { *current_angle -= 45.0f32.to_radians(); },
@@ -76,13 +78,11 @@ impl Operation for SierTepp {
     fn apply(&self, vertex_buffer: &mut Vec<MathPosition>, current_pos: &mut MathPosition, current_angle: &mut f32) {
         match self {
             SierTepp::F => {
-                current_pos.x += current_angle.cos();
-                current_pos.y += current_angle.sin();
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
                 vertex_buffer.push(*current_pos);
             },
             SierTepp::f => {
-                current_pos.x += current_angle.cos();
-                current_pos.y += current_angle.sin();
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
                 vertex_buffer.push(*current_pos);
             },
             SierTepp::R => { *current_angle -= 90.0f32.to_radians(); },
@@ -155,7 +155,7 @@ pub fn iterated_vertices<Op: Operation + Replacement>(iterated_operations: &[Vec
     let mut iteration_results = vec![];
     // TODO: let mut staunching_factor = compute_staunching_factor();
     for (index, operations) in iterated_operations.iter().enumerate() {
-        let mut vertices = compute_vertices(operations);
+        let mut vertices = compute_scaled_vertices(operations);
         for vertex in &mut vertices {
             vertex.scale(0.6f32.powi(index as i32));
         }
@@ -166,13 +166,13 @@ pub fn iterated_vertices<Op: Operation + Replacement>(iterated_operations: &[Vec
 
 // Compute the center of a given set of vertices
 pub fn compute_center(vertices: &[MathPosition]) -> MathPosition {
-    let mut center = MathPosition::new();
+    let mut center = MathPosition::new(0.0, 0.0);
 
     for vertex in vertices {
-        center.x += vertex.x;
-        center.y += vertex.y;
+        center += *vertex;
     }
 
+    // Check for points that are redundant.
     // We need -1 here since our vertices always include the first also as the last one
     center.scale(1.0 / ((vertices.len() - 1) as f32));
     return center;
@@ -183,29 +183,19 @@ pub fn apply_center_offset(vertices: &mut [MathPosition]) {
     let center = compute_center(vertices);
 
     for vertex in vertices {
-        vertex.x -= center.x;
-        vertex.y -= center.y;
+        *vertex -= center;
     }
 }
 
 // TODO: Implement this function correctly, it does not work as expected at the moment.
 pub fn compute_staunching_factor(replacement: &[K]) -> f32 {
-    let vertices = compute_vertices(replacement);
-    let last_vertex = vertices.last().unwrap();
-    let norm_of_last_vertex = (last_vertex.x * last_vertex.x + last_vertex.y * last_vertex.y).sqrt();
-    return 1.0 / norm_of_last_vertex;
+    let vertices = compute_base_vertices(replacement);
+    return 1.0 / vertices.last().unwrap().norm();
 }
 
-// TODO: this leaves out the first point at 0.0.
-// Not a problem if fractal loops around, as then last point will be equal to first
-// Compute the corresponding vertices for a given set of operations
-pub fn compute_vertices<Op: Operation>(operations: &[Op]) -> Vec<MathPosition> {
+pub fn compute_base_vertices<Op: Operation>(operations: &[Op]) -> Vec<MathPosition> {
     let mut vertices = vec![];
-
-    // Current pos and current angle should be abstracted in a Payload struct,
-    // or something similar.
-    // What exactly the payload will be depends on use case, so make this a marker trait
-    let mut current_pos = MathPosition::new();
+    let mut current_pos = MathPosition::new(0.0, 0.0);
     let mut current_angle: f32 = 0.0;
 
     vertices.push(current_pos);
@@ -213,114 +203,41 @@ pub fn compute_vertices<Op: Operation>(operations: &[Op]) -> Vec<MathPosition> {
         op.apply(&mut vertices, &mut current_pos, &mut current_angle);
     }
 
-    // Scale vertices
-    for vertex in &mut vertices {
-        vertex.scale(S);
-    }
-
     apply_center_offset(&mut vertices);
 
     return vertices;
 }
 
+// TODO: this leaves out the first point at 0.0.
+// Not a problem if fractal loops around, as then last point will be equal to first
+// Compute the corresponding vertices for a given set of operations
+pub fn compute_scaled_vertices<Op: Operation>(operations: &[Op]) -> Vec<MathPosition> {
+    let mut vertices = compute_base_vertices(operations);
+
+    for vertex in &mut vertices {
+        vertex.scale(S);
+    }
+
+    return vertices;
+}
+
 pub fn draw_polygon(primitives: &PrimitivesAddon, vertices: &[MathPosition], color: Color) {
-    let vertices: Vec<_> = vertices.iter()
+    let vertices: Vec<(f32, f32)> = vertices.iter()
         .map(|pos| {
-            let pos: ScreenPosition = pos.into();
-            (pos.x, pos.y)
+            ScreenPosition::from(pos).into()
         })
         .collect();
     primitives.draw_polygon(&vertices, LineJoinType::Round, color, 2.0, 1.0);
 }
 
 pub fn draw_single_lines(primitives: &PrimitivesAddon, vertices: &[MathPosition], color: Color) {
-    let vertices: Vec<_> = vertices.iter()
+    let vertices: Vec<(f32, f32)> = vertices.iter()
         .map(|pos| {
-            let pos: ScreenPosition = pos.into();
-            (pos.x, pos.y)
+            ScreenPosition::from(pos).into()
         })
         .collect();
     for index in 0..vertices.len()-1 {
         primitives.draw_line(vertices[index].0, vertices[index].1, vertices[index+1].0, vertices[index+1].1, color, 2.0);
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct MathPosition {
-    x: f32,
-    y: f32,
-}
-
-impl MathPosition {
-    pub fn new() -> Self {
-        MathPosition {
-            x: 0.0,
-            y: 0.0,
-        }
-    }
-    pub fn scale(&mut self, factor: f32) {
-        self.x *= factor;
-        self.y *= factor;
-    }
-}
-
-impl From<(f32, f32)> for MathPosition {
-    fn from(pos: (f32, f32)) -> Self {
-        MathPosition {
-            x: pos.0,
-            y: pos.1,
-        }
-    }
-}
-
-impl From<&(f32, f32)> for MathPosition {
-    fn from(pos: &(f32, f32)) -> Self {
-        MathPosition {
-            x: pos.0,
-            y: pos.0,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct ScreenPosition {
-    x: f32,
-    y: f32,
-}
-
-impl From<MathPosition> for ScreenPosition {
-    fn from(math_pos: MathPosition) -> Self {
-        ScreenPosition {
-            x: math_pos.x + (DISPLAY_WIDTH as f32) / 2.0,
-            y: -math_pos.y + (DISPLAY_HEIGHT as f32) / 2.0,
-        }
-    }
-}
-
-impl From<&MathPosition> for ScreenPosition {
-    fn from(math_pos: &MathPosition) -> Self {
-        ScreenPosition {
-            x: math_pos.x + (DISPLAY_WIDTH as f32) / 2.0,
-            y: -math_pos.y + (DISPLAY_HEIGHT as f32) / 2.0,
-        }
-    }
-}
-
-impl From<ScreenPosition> for MathPosition {
-    fn from(screen_pos: ScreenPosition) -> Self {
-        MathPosition {
-            x: screen_pos.x - (DISPLAY_WIDTH as f32) / 2.0,
-            y: -screen_pos.y + (DISPLAY_HEIGHT as f32) / 2.0,
-        }
-    }
-}
-
-impl From<&ScreenPosition> for MathPosition {
-    fn from(screen_pos: &ScreenPosition) -> Self {
-        MathPosition {
-            x: screen_pos.x - (DISPLAY_WIDTH as f32) / 2.0,
-            y: -screen_pos.y + (DISPLAY_HEIGHT as f32) / 2.0,
-        }
     }
 }
 
