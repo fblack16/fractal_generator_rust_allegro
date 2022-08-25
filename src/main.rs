@@ -16,7 +16,7 @@ use coordinates::ScreenPosition;
 
 const DISPLAY_WIDTH: i32 = 1200;
 const DISPLAY_HEIGHT: i32 = 800;
-const S: f32 = 50.0;
+const S: f32 = 700.0;
 
 // user defines an enum, specifiying operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -46,6 +46,7 @@ pub enum SierTepp {
 // Generalize this to an arbitrary mutable Payload, if possible.
 pub trait Operation: Copy {
     fn apply(&self, vertex_buffer: &mut Vec<MathPosition>, current_pos: &mut MathPosition, current_angle: &mut f32);
+    fn forward() -> Self;
 }
 
 impl Operation for K {
@@ -55,9 +56,12 @@ impl Operation for K {
                 *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
                 vertex_buffer.push(*current_pos);
             },
-            K::R => { *current_angle -= 120.0f32; },
-            K::L => { *current_angle += 120.0f32; },
+            K::R => { *current_angle -= 60.0f32.to_radians(); },
+            K::L => { *current_angle += 60.0f32.to_radians(); },
         }
+    }
+    fn forward() -> Self {
+        K::F
     }
 }
 
@@ -71,6 +75,9 @@ impl Operation for Levy {
             Levy::R => { *current_angle -= 45.0f32.to_radians(); },
             Levy::L => { *current_angle += 45.0f32.to_radians(); },
         }
+    }
+    fn forward() -> Self {
+        Levy::F
     }
 }
 
@@ -89,11 +96,14 @@ impl Operation for SierTepp {
             SierTepp::L => { *current_angle += 90.0f32.to_radians(); },
         }
     }
+    fn forward() -> Self {
+        SierTepp::F
+    }
 }
 
+
 pub trait Replacement: Sized {
-    fn replacement(&self) -> Option<Vec<Self>>;
-}
+    fn replacement(&self) -> Option<Vec<Self>>;}
 
 impl Replacement for K {
     fn replacement(&self) -> Option<Vec<Self>> {
@@ -153,11 +163,12 @@ pub fn iterate_fractal<Op: Operation + Replacement>(base_operations: &[Op], iter
 
 pub fn iterated_vertices<Op: Operation + Replacement>(iterated_operations: &[Vec<Op>]) -> Vec<Vec<MathPosition>> {
     let mut iteration_results = vec![];
-    // TODO: let mut staunching_factor = compute_staunching_factor();
+    let staunching_factor = compute_staunching_factor::<Op>();
+
     for (index, operations) in iterated_operations.iter().enumerate() {
         let mut vertices = compute_scaled_vertices(operations);
         for vertex in &mut vertices {
-            vertex.scale(0.6f32.powi(index as i32));
+            vertex.scale(staunching_factor.powi(index as i32));
         }
         iteration_results.push(vertices);
     }
@@ -172,9 +183,16 @@ pub fn compute_center(vertices: &[MathPosition]) -> MathPosition {
         center += *vertex;
     }
 
+    let mut n_vertices = vertices.len();
+    // If we have a closed curve and the first index equals the last,
+    // do not consider the redundant point in the computation of the center.
+    if (*vertices.first().unwrap() - *vertices.last().unwrap()).norm() <= 5.0 * f32::EPSILON {
+        n_vertices = vertices.len() - 1;
+    }
+
     // Check for points that are redundant.
     // We need -1 here since our vertices always include the first also as the last one
-    center.scale(1.0 / ((vertices.len() - 1) as f32));
+    center.scale(1.0 / (n_vertices as f32));
     return center;
 }
 
@@ -188,9 +206,13 @@ pub fn apply_center_offset(vertices: &mut [MathPosition]) {
 }
 
 // TODO: Implement this function correctly, it does not work as expected at the moment.
-pub fn compute_staunching_factor(replacement: &[K]) -> f32 {
-    let vertices = compute_base_vertices(replacement);
-    return 1.0 / vertices.last().unwrap().norm();
+fn compute_staunching_factor<Op: Operation + Replacement>() -> f32 {
+    let mut staunching_factor = 1.0;
+    if let Some(replacement) = Op::forward().replacement() {
+        let vertices = compute_base_vertices(&replacement);
+        staunching_factor = 1.0 / vertices.last().unwrap().norm();
+    }
+    return staunching_factor;
 }
 
 pub fn compute_base_vertices<Op: Operation>(operations: &[Op]) -> Vec<MathPosition> {
@@ -203,8 +225,6 @@ pub fn compute_base_vertices<Op: Operation>(operations: &[Op]) -> Vec<MathPositi
         op.apply(&mut vertices, &mut current_pos, &mut current_angle);
     }
 
-    apply_center_offset(&mut vertices);
-
     return vertices;
 }
 
@@ -214,6 +234,7 @@ pub fn compute_base_vertices<Op: Operation>(operations: &[Op]) -> Vec<MathPositi
 pub fn compute_scaled_vertices<Op: Operation>(operations: &[Op]) -> Vec<MathPosition> {
     let mut vertices = compute_base_vertices(operations);
 
+    apply_center_offset(&mut vertices);
     for vertex in &mut vertices {
         vertex.scale(S);
     }
@@ -250,17 +271,17 @@ allegro_main!
     let timer = Timer::new(&core, 1.0 / 60.0).unwrap();
     let queue = EventQueue::new(&core).unwrap();
 
-    //let base_operations_koch = vec![K::F, K::R, K::R, K::F, K::R, K::R, K::F];
-    //let iterated_operations_koch = iterate_fractal(&base_operations_koch, 8);
-    //let iterated_vertices_koch = iterated_vertices(&iterated_operations_koch[..]);
+    // let base_operations = vec![K::F, K::R, K::R, K::F, K::R, K::R, K::F];
+    // let iterated_operations = iterate_fractal(&base_operations, 8);
+    // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
 
-    //let base_operations_levy = vec![Levy::F];
-    //let iterated_operations_levy = iterate_fractal(&base_operations_levy, 8);
-    //let iterated_vertices_levy = iterated_vertices(&iterated_operations_levy[..]);
+    // let base_operations = vec![Levy::F];
+    // let iterated_operations = iterate_fractal(&base_operations, 8);
+    // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
 
-    let base_operations_sier_tepp = vec![SierTepp::F];
-    let iterated_operations_sier_tepp = iterate_fractal(&base_operations_sier_tepp, 5);
-    let iterated_vertices_sier_tepp = iterated_vertices(&iterated_operations_sier_tepp[..]);
+    let base_operations = vec![SierTepp::F];
+    let iterated_operations = iterate_fractal(&base_operations, 5);
+    let vertex_iterations = iterated_vertices(&iterated_operations[..]);
 
     queue.register_event_source(display.get_event_source());
     queue.register_event_source(timer.get_event_source());
@@ -273,19 +294,7 @@ allegro_main!
         {
             core.clear_to_color(Color::from_rgb_f(0.0, 0.0, 0.0));
 
-            //for (index, vertices) in iterated_vertices_koch.iter().enumerate() {
-            //    let ex = index as i32;
-            //    // draw_polygon(&primitives, &vertices, Color::from_rgb_f(0.9f32.powi(ex), 0.8f32.powi(ex), 0.7f32.powi(ex)));
-            //    draw_single_lines(&primitives, &vertices, Color::from_rgb_f(0.9f32.powi(ex), 0.8f32.powi(ex), 0.7f32.powi(ex)));
-            //}
-            //
-            //
-            //for (index, vertices) in iterated_vertices_levy.iter().enumerate() {
-            //    let ex = index as i32;
-            //    draw_single_lines(&primitives, &vertices, Color::from_rgb_f(0.9f32.powi(ex), 0.8f32.powi(ex), 0.7f32.powi(ex)));
-            //}
-
-            for (index, vertices) in iterated_vertices_sier_tepp.iter().enumerate() {
+            for (index, vertices) in vertex_iterations.iter().enumerate() {
                 let ex = index as i32;
                 draw_single_lines(&primitives, &vertices, Color::from_rgb_f(0.9f32.powi(ex), 0.8f32.powi(ex), 0.7f32.powi(ex)));
             }
