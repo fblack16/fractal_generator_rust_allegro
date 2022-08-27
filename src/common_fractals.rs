@@ -11,7 +11,7 @@ pub enum Koch {
 }
 
 impl Operation for Koch {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
         match self {
             Koch::F => {
                 *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
@@ -43,7 +43,7 @@ pub enum Levy {
 }
 
 impl Operation for Levy {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
         match self {
             Levy::F => {
                 *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
@@ -77,7 +77,7 @@ pub enum SierTepp {
 }
 
 impl Operation for SierTepp {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
         match self {
             SierTepp::F => {
                 *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
@@ -127,7 +127,7 @@ pub enum DragonCurve {
 }
 
 impl Operation for DragonCurve {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
         match self {
             DragonCurve::F => {
                 *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
@@ -160,6 +160,292 @@ impl Replacement for DragonCurve {
                 Some(vec![DragonCurve::R, DragonCurve::F, DragonCurve::L, DragonCurve::L, DragonCurve::W, DragonCurve::R])
             },
             _ => None
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GosperCurve {
+    F,
+    W,
+    L,
+    R,
+}
+
+impl Operation for GosperCurve {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+        match self {
+            Self::F => {
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                vertex_buffer.push(Some(*current_pos));
+            },
+            Self::W => {
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                vertex_buffer.push(Some(*current_pos));
+            },
+            Self::L => {
+                *current_angle += 60.0f32.to_radians();
+            },
+            Self::R => {
+                *current_angle -= 60.0f32.to_radians();
+            }
+        }
+    }
+    fn forward() -> Self {
+        Self::F
+    }
+}
+
+impl Replacement for GosperCurve {
+    fn replacement(&self) -> Option<Vec<Self>> {
+        match self {
+            Self::F => {
+                Some(vec![Self::F, Self::L, Self::W, Self::L, Self::L, Self::W, Self::R, Self::F, Self::R, Self::R, Self::F, Self::F, Self::R, Self::W, Self::L])
+            },
+            Self::W => {
+                Some(vec![Self::R, Self::F, Self::L, Self::W, Self::W, Self::L, Self::L, Self::W, Self::L, Self::F, Self::R, Self::R, Self::F, Self::R, Self::W])
+            },
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HilbertCurve {
+    F,
+    A,
+    B,
+    L,
+    R,
+}
+
+impl Operation for HilbertCurve {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+        match self {
+            Self::F => {
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                vertex_buffer.push(Some(*current_pos));
+            },
+            Self::L => {
+                *current_angle += 90.0f32.to_radians();
+            },
+            Self::R => {
+                *current_angle -= 90.0f32.to_radians();
+            },
+            _ => (),
+        }
+    }
+    fn forward() -> Self {
+        Self::F
+    }
+}
+
+impl Replacement for HilbertCurve {
+    fn replacement(&self) -> Option<Vec<Self>> {
+        match self {
+            Self::A => {
+                Some(vec![Self::L, Self::B, Self::F, Self::R, Self::A, Self::F, Self::A, Self::R, Self::F, Self::B, Self::L])
+            },
+            Self::B => {
+                Some(vec![Self::R, Self::A, Self::F, Self::L, Self::B, Self::F, Self::B, Self::L, Self::F, Self::A, Self::R])
+            },
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PentaPlexity {
+    F,
+    L,
+    R,
+    T,
+}
+
+impl Operation for PentaPlexity {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+        match self {
+            Self::F => {
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                vertex_buffer.push(Some(*current_pos));
+            },
+            Self::L => {
+                *current_angle += 36.0f32.to_radians();
+            },
+            Self::R => {
+                *current_angle -= 36.0f32.to_radians();
+            },
+            Self::T => {
+                *current_angle += 180.0f32.to_radians();
+            },
+        }
+    }
+    fn forward() -> Self {
+        Self::F
+    }
+}
+
+impl Replacement for PentaPlexity {
+    fn replacement(&self) -> Option<Vec<Self>> {
+        match self {
+            Self::F => {
+                Some(vec![Self::F, Self::L, Self::L, Self::F, Self::L, Self::L, Self::F, Self::T, Self::F, Self::R, Self::F, Self::L, Self::L, Self::F])
+            },
+            _ => None,
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ArrowHead {
+    F,
+    W,
+    L,
+    R,
+}
+
+impl Operation for ArrowHead {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+        match self {
+            Self::F => {
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                vertex_buffer.push(Some(*current_pos));
+            },
+            Self::W => {
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                vertex_buffer.push(Some(*current_pos));
+            },
+            Self::L => {
+                *current_angle += 60.0f32.to_radians();
+            },
+            Self::R => {
+                *current_angle -= 60.0f32.to_radians();
+            },
+        }
+    }
+    fn forward() -> Self {
+        Self::F
+    }
+}
+
+impl Replacement for ArrowHead {
+    fn replacement(&self) -> Option<Vec<Self>> {
+        match self {
+            Self::F => {
+                Some(vec![Self::R, Self::W, Self::L, Self::F, Self::L, Self::W, Self::R])
+            },
+            Self::W => {
+                Some(vec![Self::L, Self::F, Self::R, Self::W, Self::R, Self::F, Self::L])
+            },
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SierpinskiTriangle {
+    F,
+    f,
+    L,
+    R,
+}
+
+impl Operation for SierpinskiTriangle {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+        match self {
+            Self::F => {
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                vertex_buffer.push(Some(*current_pos));
+            },
+            Self::f => {
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                if !vertex_buffer.is_empty() {
+                    if let Some(_) = vertex_buffer.last() {
+                        vertex_buffer.push(None);
+                    }
+                }
+                vertex_buffer.push(Some(*current_pos));
+            },
+            Self::L => {
+                *current_angle += 60.0f32.to_radians();
+            },
+            Self::R => {
+                *current_angle -= 60.0f32.to_radians();
+            },
+        }
+    }
+    fn forward() -> Self {
+        Self::F
+    }
+}
+
+impl Replacement for SierpinskiTriangle {
+    fn replacement(&self) -> Option<Vec<Self>> {
+        match self {
+            Self::F => {
+                Some(vec![Self::F, Self::R, Self::R, Self::F, Self::R, Self::R, Self::F, Self::R, Self::R, Self::f, Self::f])
+            },
+            Self::f => {
+                Some(vec![Self::f, Self::f])
+            }
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FirstPlant {
+    F,
+    X,
+    L,
+    R,
+    PUSH,
+    POP,
+}
+
+impl Operation for FirstPlant {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+        match self {
+            Self::F => {
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                vertex_buffer.push(Some(*current_pos));
+            },
+            Self::L => {
+                *current_angle += 25.0f32.to_radians();
+            },
+            Self::R => {
+                *current_angle -= 25.0f32.to_radians();
+            },
+            Self::PUSH => {
+                coordinate_buffer.push((*current_pos, *current_angle));
+            },
+            Self::POP => {
+                if let Some((stored_position, stored_angle)) = coordinate_buffer.pop() {
+                    *current_angle = stored_angle;
+                    *current_pos = stored_position;
+                }
+                vertex_buffer.push(None);
+                vertex_buffer.push(Some(*current_pos));
+            },
+            _ => (),
+        }
+    }
+    fn forward() -> Self {
+        Self::F
+    }
+}
+
+impl Replacement for FirstPlant {
+    fn replacement(&self) -> Option<Vec<Self>> {
+        match self {
+            Self::X => {
+                Some(vec![FirstPlant::F, FirstPlant::L, FirstPlant::PUSH, FirstPlant::PUSH, FirstPlant::X, FirstPlant::POP, FirstPlant::R, FirstPlant::X, FirstPlant::POP, FirstPlant::R, FirstPlant::F, FirstPlant::PUSH, FirstPlant::R, FirstPlant::F, FirstPlant::X, FirstPlant::POP, FirstPlant::L, FirstPlant::X])
+            },
+            Self::F => {
+                Some(vec![Self::F, Self::F])
+            }
+            _ => None,
         }
     }
 }

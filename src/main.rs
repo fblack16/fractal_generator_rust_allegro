@@ -24,7 +24,7 @@ const S: f32 = 300.0;
 
 // Generalize this to an arbitrary mutable Payload, if possible.
 pub trait Operation: Copy {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, current_pos: &mut MathPosition, current_angle: &mut f32);
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32);
     fn forward() -> Self;
 }
 
@@ -123,32 +123,33 @@ fn compute_staunching_factor<Op: Operation + Replacement>() -> f32 {
 }
 
 pub fn compute_base_vertices<Op: Operation>(operations: &[Op]) -> Vec<Option<MathPosition>> {
-    let mut vertices = vec![];
+    let mut vertex_buffer = vec![];
+    let mut coordinate_buffer = vec![];
     let mut current_pos = MathPosition::new(0.0, 0.0);
     let mut current_angle: f32 = 0.0;
 
-    vertices.push(Some(current_pos));
+    vertex_buffer.push(Some(current_pos));
     for op in operations {
-        op.apply(&mut vertices, &mut current_pos, &mut current_angle);
+        op.apply(&mut vertex_buffer, &mut coordinate_buffer, &mut current_pos, &mut current_angle);
     }
 
-    return vertices;
+    return vertex_buffer;
 }
 
 // TODO: this leaves out the first point at 0.0.
 // Not a problem if fractal loops around, as then last point will be equal to first
 // Compute the corresponding vertices for a given set of operations
 pub fn compute_scaled_vertices<Op: Operation>(operations: &[Op]) -> Vec<Option<MathPosition>> {
-    let mut vertices = compute_base_vertices(operations);
+    let mut vertex_buffer = compute_base_vertices(operations);
 
-    apply_center_offset(&mut vertices);
-    for vertex in &mut vertices {
+    apply_center_offset(&mut vertex_buffer);
+    for vertex in &mut vertex_buffer {
         if let Some(vertex) = vertex {
             vertex.scale(S);
         }
     }
 
-    return vertices;
+    return vertex_buffer;
 }
 
 pub fn draw_polygon(primitives: &PrimitivesAddon, vertices: &[MathPosition], color: Color) {
@@ -161,6 +162,7 @@ pub fn draw_polygon(primitives: &PrimitivesAddon, vertices: &[MathPosition], col
 }
 
 pub fn draw_single_lines(primitives: &PrimitivesAddon, vertices: &[Option<MathPosition>], color: Color) {
+    let (red, green, blue) = color.to_rgb_f();
     let vertices: Vec<Option<(f32, f32)>> = vertices.iter()
         .map(|pos| {
             match pos {
@@ -172,7 +174,7 @@ pub fn draw_single_lines(primitives: &PrimitivesAddon, vertices: &[Option<MathPo
     for index in 0..vertices.len()-1 {
         if let Some(vertex) = vertices[index] {
             if let Some(next_vertex) = vertices[index+1] {
-                primitives.draw_line(vertex.0, vertex.1, next_vertex.0, next_vertex.1, color, 2.0);
+                primitives.draw_line(vertex.0, vertex.1, next_vertex.0, next_vertex.1, Color::from_rgb_f(red - 0.0000001f32 * index as f32, green - 0.0000001f32 * index as f32, blue - 0.0000001f32 * index as f32), 2.0);
             }
         }
     }
@@ -206,8 +208,32 @@ allegro_main!
     // let iterated_operations = iterate_fractal(&base_operations, 6);
     // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
 
-    let base_operations = vec![DragonCurve::F];
-    let iterated_operations = iterate_fractal(&base_operations, 20);
+    // let base_operations = vec![DragonCurve::F];
+    // let iterated_operations = iterate_fractal(&base_operations, 20);
+    // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
+
+    // let base_operations = vec![GosperCurve::F];
+    // let iterated_operations = iterate_fractal(&base_operations, 10);
+    // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
+
+    // let base_operations = vec![HilbertCurve::A];
+    // let iterated_operations = iterate_fractal(&base_operations, 6);
+    // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
+
+    // let base_operations = vec![PentaPlexity::F, PentaPlexity::L, PentaPlexity::L, PentaPlexity::F, PentaPlexity::L, PentaPlexity::L, PentaPlexity::F, PentaPlexity::L, PentaPlexity::L, PentaPlexity::F, PentaPlexity::L, PentaPlexity::L, PentaPlexity::F];
+    // let iterated_operations = iterate_fractal(&base_operations, 6);
+    // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
+
+    // let base_operations = vec![ArrowHead::F];
+    // let iterated_operations = iterate_fractal(&base_operations, 6);
+    // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
+
+    // let base_operations = vec![SierpinskiTriangle::F, SierpinskiTriangle::R, SierpinskiTriangle::R, SierpinskiTriangle::F, SierpinskiTriangle::R, SierpinskiTriangle::R, SierpinskiTriangle::F];
+    // let iterated_operations = iterate_fractal(&base_operations, 6);
+    // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
+
+    let base_operations = vec![FirstPlant::X];
+    let iterated_operations = iterate_fractal(&base_operations, 10);
     let vertex_iterations = iterated_vertices(&iterated_operations[..]);
 
     queue.register_event_source(display.get_event_source());
@@ -220,14 +246,14 @@ allegro_main!
     'exit: loop {
         if redraw && queue.is_empty()
         {
-            core.clear_to_color(Color::from_rgb_f(0.0, 0.0, 0.0));
+            core.clear_to_color(Color::from_rgb_f(0.1, 0.1, 0.1));
 
             //for (index, vertices) in vertex_iterations.iter().enumerate() {
             //    let ex = index as i32;
             //    draw_single_lines(&primitives, &vertices, Color::from_rgb_f(0.9f32.powi(ex), 0.8f32.powi(ex), 0.7f32.powi(ex)));
             //}
 
-            draw_single_lines(&primitives, &vertex_iterations[current_depth], Color::from_rgb_f(0.9, 0.8, 0.7));
+            draw_single_lines(&primitives, &vertex_iterations[current_depth], Color::from_rgb_f(0.7, 0.9, 0.7));
 
             core.flip_display();
             redraw = false;
@@ -257,7 +283,7 @@ allegro_main!
                 match keycode {
                     KeyCode::I => {
                         println!("Key: I");
-                        if current_depth < 20 {
+                        if current_depth < 10 {
                             current_depth += 1;
                         }
                     },
