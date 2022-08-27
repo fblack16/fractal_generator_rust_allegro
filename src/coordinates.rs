@@ -4,8 +4,8 @@ use crate::DISPLAY_WIDTH;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MathPosition {
-    x: f32,
-    y: f32,
+    pub x: f32,
+    pub y: f32,
 }
 
 impl MathPosition {
@@ -39,7 +39,7 @@ impl From<&(f32, f32)> for MathPosition {
     fn from(pos: &(f32, f32)) -> Self {
         MathPosition {
             x: pos.0,
-            y: pos.0,
+            y: pos.1,
         }
     }
 }

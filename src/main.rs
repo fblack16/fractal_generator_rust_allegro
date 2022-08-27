@@ -7,6 +7,7 @@ mod fractal;
 mod word_slice;
 
 mod coordinates;
+mod common_fractals;
 
 use allegro::*;
 use allegro_primitives::*;
@@ -14,127 +15,21 @@ use allegro_primitives::*;
 use coordinates::MathPosition;
 use coordinates::ScreenPosition;
 
+use common_fractals::*;
+
 const DISPLAY_WIDTH: i32 = 1200;
 const DISPLAY_HEIGHT: i32 = 800;
-const S: f32 = 700.0;
+const S: f32 = 300.0;
 
-// user defines an enum, specifiying operations
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum K {
-    F,
-    L,
-    R,
-}
-
-// Enum for Levy-C-Curve
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Levy {
-    F,
-    L,
-    R,
-}
-
-// Enum for Sierpinski-Teppich
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SierTepp {
-    F,
-    f,
-    L,
-    R,
-}
 
 // Generalize this to an arbitrary mutable Payload, if possible.
 pub trait Operation: Copy {
-    fn apply(&self, vertex_buffer: &mut Vec<MathPosition>, current_pos: &mut MathPosition, current_angle: &mut f32);
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, current_pos: &mut MathPosition, current_angle: &mut f32);
     fn forward() -> Self;
 }
 
-impl Operation for K {
-    fn apply(&self, vertex_buffer: &mut Vec<MathPosition>, current_pos: &mut MathPosition, current_angle: &mut f32) {
-        match self {
-            K::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(*current_pos);
-            },
-            K::R => { *current_angle -= 60.0f32.to_radians(); },
-            K::L => { *current_angle += 60.0f32.to_radians(); },
-        }
-    }
-    fn forward() -> Self {
-        K::F
-    }
-}
-
-impl Operation for Levy {
-    fn apply(&self, vertex_buffer: &mut Vec<MathPosition>, current_pos: &mut MathPosition, current_angle: &mut f32) {
-        match self {
-            Levy::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(*current_pos);
-            },
-            Levy::R => { *current_angle -= 45.0f32.to_radians(); },
-            Levy::L => { *current_angle += 45.0f32.to_radians(); },
-        }
-    }
-    fn forward() -> Self {
-        Levy::F
-    }
-}
-
-impl Operation for SierTepp {
-    fn apply(&self, vertex_buffer: &mut Vec<MathPosition>, current_pos: &mut MathPosition, current_angle: &mut f32) {
-        match self {
-            SierTepp::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(*current_pos);
-            },
-            SierTepp::f => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(*current_pos);
-            },
-            SierTepp::R => { *current_angle -= 90.0f32.to_radians(); },
-            SierTepp::L => { *current_angle += 90.0f32.to_radians(); },
-        }
-    }
-    fn forward() -> Self {
-        SierTepp::F
-    }
-}
-
-
 pub trait Replacement: Sized {
-    fn replacement(&self) -> Option<Vec<Self>>;}
-
-impl Replacement for K {
-    fn replacement(&self) -> Option<Vec<Self>> {
-        if let K::F = self {
-            return Some(vec![K::F, K::L, K::F, K::R, K::R, K::F, K::L, K::F]);
-        }
-        return None;
-    }
-}
-
-impl Replacement for Levy {
-    fn replacement(&self) -> Option<Vec<Self>> {
-        if let Levy::F = self {
-            return Some(vec![Levy::L, Levy::F, Levy::R, Levy::R, Levy::F, Levy::L]);
-        }
-        return None;
-    }
-}
-
-impl Replacement for SierTepp {
-    fn replacement(&self) -> Option<Vec<Self>> {
-        match self {
-            SierTepp::F => {
-                return Some(vec![SierTepp::F, SierTepp::L, SierTepp::F, SierTepp::R, SierTepp::F, SierTepp::R, SierTepp::F, SierTepp::F, SierTepp::R, SierTepp::F, SierTepp::R, SierTepp::F, SierTepp::R, SierTepp::f, SierTepp::F]);
-            },
-            SierTepp::f => {
-                return Some(vec![SierTepp::f, SierTepp::f, SierTepp::f]);
-            },
-            _ => return None,
-        }
-    }
+    fn replacement(&self) -> Option<Vec<Self>>;
 }
 
 pub fn iterate_operations<Op: Operation + Replacement>(operations: &[Op]) -> Vec<Op> {
@@ -161,14 +56,16 @@ pub fn iterate_fractal<Op: Operation + Replacement>(base_operations: &[Op], iter
     return iteration_results;
 }
 
-pub fn iterated_vertices<Op: Operation + Replacement>(iterated_operations: &[Vec<Op>]) -> Vec<Vec<MathPosition>> {
+pub fn iterated_vertices<Op: Operation + Replacement>(iterated_operations: &[Vec<Op>]) -> Vec<Vec<Option<MathPosition>>> {
     let mut iteration_results = vec![];
     let staunching_factor = compute_staunching_factor::<Op>();
 
     for (index, operations) in iterated_operations.iter().enumerate() {
         let mut vertices = compute_scaled_vertices(operations);
         for vertex in &mut vertices {
-            vertex.scale(staunching_factor.powi(index as i32));
+            if let Some(vertex) = vertex {
+                vertex.scale(staunching_factor.powi(index as i32));
+            }
         }
         iteration_results.push(vertices);
     }
@@ -176,32 +73,42 @@ pub fn iterated_vertices<Op: Operation + Replacement>(iterated_operations: &[Vec
 }
 
 // Compute the center of a given set of vertices
-pub fn compute_center(vertices: &[MathPosition]) -> MathPosition {
+pub fn compute_center(vertices: &[Option<MathPosition>]) -> Option<MathPosition> {
     let mut center = MathPosition::new(0.0, 0.0);
 
-    for vertex in vertices {
-        center += *vertex;
+    let mut n_vertices = 0;
+    for entry in vertices {
+        if let Some(vertex) = entry {
+            center += *vertex;
+            n_vertices += 1;
+        }
     }
 
-    let mut n_vertices = vertices.len();
     // If we have a closed curve and the first index equals the last,
     // do not consider the redundant point in the computation of the center.
-    if (*vertices.first().unwrap() - *vertices.last().unwrap()).norm() <= 5.0 * f32::EPSILON {
-        n_vertices = vertices.len() - 1;
-    }
+    // if (*vertices.first().unwrap() - *vertices.last().unwrap()).norm() <= 5.0 * f32::EPSILON {
+    //     n_vertices = vertices.len() - 1;
+    // }
 
     // Check for points that are redundant.
     // We need -1 here since our vertices always include the first also as the last one
+    if n_vertices == 0 {
+        return None;
+    }
     center.scale(1.0 / (n_vertices as f32));
-    return center;
+    return Some(center);
 }
 
 // Apply center offset to all vertices in the given set.
-pub fn apply_center_offset(vertices: &mut [MathPosition]) {
+pub fn apply_center_offset(vertices: &mut [Option<MathPosition>]) {
     let center = compute_center(vertices);
 
-    for vertex in vertices {
-        *vertex -= center;
+    if let Some(center) = center {
+        for vertex in vertices {
+            if let Some(vertex) = vertex {
+                *vertex -= center;
+            }
+        }
     }
 }
 
@@ -210,17 +117,17 @@ fn compute_staunching_factor<Op: Operation + Replacement>() -> f32 {
     let mut staunching_factor = 1.0;
     if let Some(replacement) = Op::forward().replacement() {
         let vertices = compute_base_vertices(&replacement);
-        staunching_factor = 1.0 / vertices.last().unwrap().norm();
+        staunching_factor = 1.0 / vertices.last().unwrap().unwrap().norm();
     }
     return staunching_factor;
 }
 
-pub fn compute_base_vertices<Op: Operation>(operations: &[Op]) -> Vec<MathPosition> {
+pub fn compute_base_vertices<Op: Operation>(operations: &[Op]) -> Vec<Option<MathPosition>> {
     let mut vertices = vec![];
     let mut current_pos = MathPosition::new(0.0, 0.0);
     let mut current_angle: f32 = 0.0;
 
-    vertices.push(current_pos);
+    vertices.push(Some(current_pos));
     for op in operations {
         op.apply(&mut vertices, &mut current_pos, &mut current_angle);
     }
@@ -231,12 +138,14 @@ pub fn compute_base_vertices<Op: Operation>(operations: &[Op]) -> Vec<MathPositi
 // TODO: this leaves out the first point at 0.0.
 // Not a problem if fractal loops around, as then last point will be equal to first
 // Compute the corresponding vertices for a given set of operations
-pub fn compute_scaled_vertices<Op: Operation>(operations: &[Op]) -> Vec<MathPosition> {
+pub fn compute_scaled_vertices<Op: Operation>(operations: &[Op]) -> Vec<Option<MathPosition>> {
     let mut vertices = compute_base_vertices(operations);
 
     apply_center_offset(&mut vertices);
     for vertex in &mut vertices {
-        vertex.scale(S);
+        if let Some(vertex) = vertex {
+            vertex.scale(S);
+        }
     }
 
     return vertices;
@@ -251,40 +160,59 @@ pub fn draw_polygon(primitives: &PrimitivesAddon, vertices: &[MathPosition], col
     primitives.draw_polygon(&vertices, LineJoinType::Round, color, 2.0, 1.0);
 }
 
-pub fn draw_single_lines(primitives: &PrimitivesAddon, vertices: &[MathPosition], color: Color) {
-    let vertices: Vec<(f32, f32)> = vertices.iter()
+pub fn draw_single_lines(primitives: &PrimitivesAddon, vertices: &[Option<MathPosition>], color: Color) {
+    let vertices: Vec<Option<(f32, f32)>> = vertices.iter()
         .map(|pos| {
-            ScreenPosition::from(pos).into()
+            match pos {
+                Some(pos) => Some(ScreenPosition::from(pos).into()),
+                None => None,
+            }
         })
         .collect();
     for index in 0..vertices.len()-1 {
-        primitives.draw_line(vertices[index].0, vertices[index].1, vertices[index+1].0, vertices[index+1].1, color, 2.0);
+        if let Some(vertex) = vertices[index] {
+            if let Some(next_vertex) = vertices[index+1] {
+                primitives.draw_line(vertex.0, vertex.1, next_vertex.0, next_vertex.1, color, 2.0);
+            }
+        }
     }
 }
 
 allegro_main!
 {
     let core = Core::init().unwrap();
+    if let Ok(_) = core.install_keyboard() {
+        println!("Keyboard successfully installed!");
+    } else {
+        println!("Keyboard could not be installed!");
+    }
     let primitives = PrimitivesAddon::init(&core).unwrap();
 
     let display = Display::new(&core, DISPLAY_WIDTH, DISPLAY_HEIGHT).unwrap();
     let timer = Timer::new(&core, 1.0 / 60.0).unwrap();
     let queue = EventQueue::new(&core).unwrap();
 
-    // let base_operations = vec![K::F, K::R, K::R, K::F, K::R, K::R, K::F];
-    // let iterated_operations = iterate_fractal(&base_operations, 8);
+    let mut current_depth = 0;
+
+    // let base_operations = vec![Koch::F, Koch::R, Koch::R, Koch::F, Koch::R, Koch::R, Koch::F];
+    // let iterated_operations = iterate_fractal(&base_operations, 10);
     // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
 
     // let base_operations = vec![Levy::F];
-    // let iterated_operations = iterate_fractal(&base_operations, 8);
+    // let iterated_operations = iterate_fractal(&base_operations, 10);
     // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
 
-    let base_operations = vec![SierTepp::F];
-    let iterated_operations = iterate_fractal(&base_operations, 5);
+    // let base_operations = vec![SierTepp::F];
+    // let iterated_operations = iterate_fractal(&base_operations, 6);
+    // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
+
+    let base_operations = vec![DragonCurve::F];
+    let iterated_operations = iterate_fractal(&base_operations, 20);
     let vertex_iterations = iterated_vertices(&iterated_operations[..]);
 
     queue.register_event_source(display.get_event_source());
     queue.register_event_source(timer.get_event_source());
+    queue.register_event_source(core.get_keyboard_event_source().unwrap());
 
     let mut redraw = true;
     timer.start();
@@ -294,10 +222,12 @@ allegro_main!
         {
             core.clear_to_color(Color::from_rgb_f(0.0, 0.0, 0.0));
 
-            for (index, vertices) in vertex_iterations.iter().enumerate() {
-                let ex = index as i32;
-                draw_single_lines(&primitives, &vertices, Color::from_rgb_f(0.9f32.powi(ex), 0.8f32.powi(ex), 0.7f32.powi(ex)));
-            }
+            //for (index, vertices) in vertex_iterations.iter().enumerate() {
+            //    let ex = index as i32;
+            //    draw_single_lines(&primitives, &vertices, Color::from_rgb_f(0.9f32.powi(ex), 0.8f32.powi(ex), 0.7f32.powi(ex)));
+            //}
+
+            draw_single_lines(&primitives, &vertex_iterations[current_depth], Color::from_rgb_f(0.9, 0.8, 0.7));
 
             core.flip_display();
             redraw = false;
@@ -307,6 +237,39 @@ allegro_main!
         {
             DisplayClose{..} => break 'exit,
             TimerTick{..} => redraw = true,
+            //KeyDown{source, timestamp, keycode, display} if keycode == KeyCode::F => {
+            //    if current_word < starting_words.len()-1 {
+            //        current_word += 1;
+            //    }
+            //    base_operations = starting_words[current_word];
+            //    iterated_operations = iterate_fractal(&base_operations, 10);
+            //    vertex_iterations = iterated_vertices(&iterated_operations[..]);
+            //},
+            //KeyDown{source, timestamp, keycode, display} if keycode == KeyCode::N => {
+            //    if current_word > 0 {
+            //        current_word -= 1;
+            //    }
+            //    base_operations = starting_words[current_word];
+            //    iterated_operations = iterate_fractal(&base_operations, 10);
+            //    vertex_iterations = iterated_vertices(&iterated_operations[..]);
+            //},
+            KeyDown{source: _, timestamp: _, keycode, ..} => {
+                match keycode {
+                    KeyCode::I => {
+                        println!("Key: I");
+                        if current_depth < 20 {
+                            current_depth += 1;
+                        }
+                    },
+                    KeyCode::P => {
+                        println!("Key: P");
+                        if current_depth > 0 {
+                            current_depth -= 1;
+                        }
+                    },
+                    _ => (),
+                }
+            },
             _ => (),
         }
     }
