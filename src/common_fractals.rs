@@ -449,3 +449,116 @@ impl Replacement for FirstPlant {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PlantOne {
+    F,
+    X,
+    L,
+    R,
+    PUSH,
+    POP,
+}
+
+impl Operation for PlantOne {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+        match self {
+            Self::F => {
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                vertex_buffer.push(Some(*current_pos));
+            },
+            Self::L => {
+                *current_angle += 25.0f32.to_radians();
+            },
+            Self::R => {
+                *current_angle -= 25.0f32.to_radians();
+            },
+            Self::PUSH => {
+                coordinate_buffer.push((*current_pos, *current_angle));
+            },
+            Self::POP => {
+                if let Some((stored_position, stored_angle)) = coordinate_buffer.pop() {
+                    *current_angle = stored_angle;
+                    *current_pos = stored_position;
+                }
+                vertex_buffer.push(None);
+                vertex_buffer.push(Some(*current_pos));
+            },
+            _ => (),
+        }
+    }
+    fn forward() -> Self {
+        Self::F
+    }
+}
+
+impl Replacement for PlantOne {
+    fn replacement(&self) -> Option<Vec<Self>> {
+        match self {
+            Self::X => {
+                Some(vec![Self::F, Self::L, Self::PUSH, Self::PUSH, Self::X, Self::POP, Self::R, Self::R, Self::X, Self::POP, Self::F, Self::X])
+            },
+            Self::F => {
+                Some(vec![Self::F, Self::F])
+            }
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PlantTwo {
+    F,
+    X,
+    Y,
+    L,
+    R,
+    PUSH,
+    POP,
+}
+
+impl Operation for PlantTwo {
+    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+        match self {
+            Self::F => {
+                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                vertex_buffer.push(Some(*current_pos));
+            },
+            Self::L => {
+                *current_angle += 25.0f32.to_radians();
+            },
+            Self::R => {
+                *current_angle -= 25.0f32.to_radians();
+            },
+            Self::PUSH => {
+                coordinate_buffer.push((*current_pos, *current_angle));
+            },
+            Self::POP => {
+                if let Some((stored_position, stored_angle)) = coordinate_buffer.pop() {
+                    *current_angle = stored_angle;
+                    *current_pos = stored_position;
+                }
+                vertex_buffer.push(None);
+                vertex_buffer.push(Some(*current_pos));
+            },
+            _ => (),
+        }
+    }
+    fn forward() -> Self {
+        Self::F
+    }
+}
+
+impl Replacement for PlantTwo {
+    fn replacement(&self) -> Option<Vec<Self>> {
+        match self {
+            Self::X => {
+                Some(vec![Self::F, Self::PUSH, Self::R, Self::R, Self::R, Self::PUSH, Self::X, Self::POP, Self::X, Self::POP, Self::F, Self::R, Self::X])
+            },
+            Self::F => {
+                Some(vec![Self::F, Self::F])
+            }
+            _ => None,
+        }
+    }
+}

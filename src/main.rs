@@ -17,8 +17,8 @@ use coordinates::ScreenPosition;
 
 use common_fractals::*;
 
-const DISPLAY_WIDTH: i32 = 1200;
-const DISPLAY_HEIGHT: i32 = 800;
+const DISPLAY_WIDTH: i32 = 1900;
+const DISPLAY_HEIGHT: i32 = 1080;
 const S: f32 = 300.0;
 
 
@@ -126,7 +126,7 @@ pub fn compute_base_vertices<Op: Operation>(operations: &[Op]) -> Vec<Option<Mat
     let mut vertex_buffer = vec![];
     let mut coordinate_buffer = vec![];
     let mut current_pos = MathPosition::new(0.0, 0.0);
-    let mut current_angle: f32 = 0.0;
+    let mut current_angle: f32 = 90.0f32.to_radians();
 
     vertex_buffer.push(Some(current_pos));
     for op in operations {
@@ -236,6 +236,14 @@ allegro_main!
     let iterated_operations = iterate_fractal(&base_operations, 10);
     let vertex_iterations = iterated_vertices(&iterated_operations[..]);
 
+    // let base_operations = vec![PlantOne::X];
+    // let iterated_operations = iterate_fractal(&base_operations, 15);
+    // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
+
+    // let base_operations = vec![PlantTwo::X];
+    // let iterated_operations = iterate_fractal(&base_operations, 15);
+    // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
+
     queue.register_event_source(display.get_event_source());
     queue.register_event_source(timer.get_event_source());
     queue.register_event_source(core.get_keyboard_event_source().unwrap());
@@ -283,7 +291,7 @@ allegro_main!
                 match keycode {
                     KeyCode::I => {
                         println!("Key: I");
-                        if current_depth < 10 {
+                        if current_depth < 15 {
                             current_depth += 1;
                         }
                     },
