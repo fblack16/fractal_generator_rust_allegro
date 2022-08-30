@@ -1,7 +1,6 @@
+use crate::LindenmayerPayload;
 use crate::Operation;
 use crate::Replacement;
-
-use crate::coordinates::MathPosition;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Koch {
@@ -11,25 +10,25 @@ pub enum Koch {
 }
 
 impl Operation for Koch {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
-            Koch::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+            Self::F => {
+                payload.update_current_position();
+                payload.push_current_position();
             },
-            Koch::R => { *current_angle -= 60.0f32.to_radians(); },
-            Koch::L => { *current_angle += 60.0f32.to_radians(); },
+            Self::R => { payload.decrease_current_angle(60.0f32.to_radians()); },
+            Self::L => { payload.increase_current_angle(60.0f32.to_radians()); },
         }
     }
     fn forward() -> Self {
-        Koch::F
+        Self::F
     }
 }
 
 impl Replacement for Koch {
     fn replacement(&self) -> Option<Vec<Self>> {
-        if let Koch::F = self {
-            return Some(vec![Koch::F, Koch::L, Koch::F, Koch::R, Koch::R, Koch::F, Koch::L, Koch::F]);
+        if let Self::F = self {
+            return Some(vec![Self::F, Self::L, Self::F, Self::R, Self::R, Self::F, Self::L, Self::F]);
         }
         return None;
     }
@@ -43,25 +42,25 @@ pub enum Levy {
 }
 
 impl Operation for Levy {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
-            Levy::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+            Self::F => {
+                payload.update_current_position();
+                payload.push_current_position();
             },
-            Levy::R => { *current_angle -= 45.0f32.to_radians(); },
-            Levy::L => { *current_angle += 45.0f32.to_radians(); },
+            Self::R => { payload.decrease_current_angle(45.0f32.to_radians()); },
+            Self::L => { payload.increase_current_angle(45.0f32.to_radians()); },
         }
     }
     fn forward() -> Self {
-        Levy::F
+        Self::F
     }
 }
 
 impl Replacement for Levy {
     fn replacement(&self) -> Option<Vec<Self>> {
         if let Levy::F = self {
-            return Some(vec![Levy::L, Levy::F, Levy::R, Levy::R, Levy::F, Levy::L]);
+            return Some(vec![Self::L, Self::F, Self::R, Self::R, Self::F, Self::L]);
         }
         return None;
     }
@@ -71,47 +70,45 @@ impl Replacement for Levy {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SierTepp {
     F,
-    f,
+    J,
     L,
     R,
 }
 
 impl Operation for SierTepp {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
-            SierTepp::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+            Self::F => {
+                payload.update_current_position();
+                payload.push_current_position();
             },
-            SierTepp::f => {
+            Self::J => {
                 // Update the position, but do not draw.
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
+                payload.update_current_position();
                 // To mark that we do not need to draw, put a none in the vertex buffer as a stop
                 // sign, and then push the new point.
-                if !vertex_buffer.is_empty() {
-                    if let Some(_) = vertex_buffer.last() {
-                        vertex_buffer.push(None);
-                    }
+                if let Some(_) = payload.vertex_buffer.last() {
+                    payload.vertex_buffer.push(None);
                 }
-                vertex_buffer.push(Some(*current_pos))
+                payload.push_current_position();
             },
-            SierTepp::R => { *current_angle -= 90.0f32.to_radians(); },
-            SierTepp::L => { *current_angle += 90.0f32.to_radians(); },
+            Self::R => { payload.decrease_current_angle(90.0f32.to_radians()); },
+            Self::L => { payload.increase_current_angle(90.0f32.to_radians()); },
         }
     }
     fn forward() -> Self {
-        SierTepp::F
+        Self::F
     }
 }
 
 impl Replacement for SierTepp {
     fn replacement(&self) -> Option<Vec<Self>> {
         match self {
-            SierTepp::F => {
-                return Some(vec![SierTepp::F, SierTepp::L, SierTepp::F, SierTepp::R, SierTepp::F, SierTepp::R, SierTepp::F, SierTepp::F, SierTepp::R, SierTepp::F, SierTepp::R, SierTepp::F, SierTepp::R, SierTepp::f, SierTepp::F]);
+            Self::F => {
+                return Some(vec![Self::F, Self::L, Self::F, Self::R, Self::F, Self::R, Self::F, Self::F, Self::R, Self::F, Self::R, Self::F, Self::R, Self::J, Self::F]);
             },
-            SierTepp::f => {
-                return Some(vec![SierTepp::f, SierTepp::f, SierTepp::f]);
+            Self::J => {
+                return Some(vec![Self::J, Self::J, Self::J]);
             },
             _ => return None,
         }
@@ -127,37 +124,37 @@ pub enum DragonCurve {
 }
 
 impl Operation for DragonCurve {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
-            DragonCurve::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+            Self::F => {
+                payload.update_current_position();
+                payload.push_current_position();
             },
-            DragonCurve::W => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+            Self::W => {
+                payload.update_current_position();
+                payload.push_current_position();
             },
-            DragonCurve::L => {
-                *current_angle += 45.0f32.to_radians();
+            Self::L => {
+                payload.increase_current_angle(45.0f32);
             },
-            DragonCurve::R => {
-                *current_angle -= 45.0f32.to_radians();
+            Self::R => {
+                payload.decrease_current_angle(45.0f32);
             },
         }
     }
     fn forward() -> Self {
-        DragonCurve::F
+        Self::F
     }
 }
 
 impl Replacement for DragonCurve {
     fn replacement(&self) -> Option<Vec<Self>> {
         match self {
-            DragonCurve::F => {
-                Some(vec![DragonCurve::L, DragonCurve::F, DragonCurve::R, DragonCurve::R, DragonCurve::W, DragonCurve::L])
+            Self::F => {
+                Some(vec![Self::L, Self::F, Self::R, Self::R, Self::W, Self::L])
             },
-            DragonCurve::W => {
-                Some(vec![DragonCurve::R, DragonCurve::F, DragonCurve::L, DragonCurve::L, DragonCurve::W, DragonCurve::R])
+            Self::W => {
+                Some(vec![Self::R, Self::F, Self::L, Self::L, Self::W, Self::R])
             },
             _ => None
         }
@@ -173,21 +170,21 @@ pub enum GosperCurve {
 }
 
 impl Operation for GosperCurve {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
             Self::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+                payload.update_current_position();
+                payload.push_current_position();
             },
             Self::W => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+                payload.update_current_position();
+                payload.push_current_position();
             },
             Self::L => {
-                *current_angle += 60.0f32.to_radians();
+                payload.increase_current_angle(60.0f32.to_radians());
             },
             Self::R => {
-                *current_angle -= 60.0f32.to_radians();
+                payload.decrease_current_angle(60.0f32.to_radians());
             }
         }
     }
@@ -220,17 +217,17 @@ pub enum HilbertCurve {
 }
 
 impl Operation for HilbertCurve {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
             Self::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+                payload.update_current_position();
+                payload.push_current_position();
             },
             Self::L => {
-                *current_angle += 90.0f32.to_radians();
+                payload.increase_current_angle(90.0f32.to_radians());
             },
             Self::R => {
-                *current_angle -= 90.0f32.to_radians();
+                payload.decrease_current_angle(90.0f32.to_radians());
             },
             _ => (),
         }
@@ -249,6 +246,9 @@ impl Replacement for HilbertCurve {
             Self::B => {
                 Some(vec![Self::R, Self::A, Self::F, Self::L, Self::B, Self::F, Self::B, Self::L, Self::F, Self::A, Self::R])
             },
+            Self::F => {
+                Some(vec![Self::F, Self::F])
+            }
             _ => None,
         }
     }
@@ -263,20 +263,20 @@ pub enum PentaPlexity {
 }
 
 impl Operation for PentaPlexity {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
             Self::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+                payload.update_current_position();
+                payload.push_current_position();
             },
             Self::L => {
-                *current_angle += 36.0f32.to_radians();
+                payload.increase_current_angle(36.0f32.to_radians());
             },
             Self::R => {
-                *current_angle -= 36.0f32.to_radians();
+                payload.decrease_current_angle(36.0f32.to_radians());
             },
             Self::T => {
-                *current_angle += 180.0f32.to_radians();
+                payload.increase_current_angle(180.0f32.to_radians());
             },
         }
     }
@@ -306,21 +306,21 @@ pub enum ArrowHead {
 }
 
 impl Operation for ArrowHead {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
             Self::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+                payload.update_current_position();
+                payload.push_current_position();
             },
             Self::W => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+                payload.update_current_position();
+                payload.push_current_position();
             },
             Self::L => {
-                *current_angle += 60.0f32.to_radians();
+                payload.increase_current_angle(60.0f32.to_radians());
             },
             Self::R => {
-                *current_angle -= 60.0f32.to_radians();
+                payload.decrease_current_angle(60.0f32.to_radians());
             },
         }
     }
@@ -346,32 +346,30 @@ impl Replacement for ArrowHead {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SierpinskiTriangle {
     F,
-    f,
+    J,
     L,
     R,
 }
 
 impl Operation for SierpinskiTriangle {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
             Self::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+                payload.update_current_position();
+                payload.push_current_position();
             },
-            Self::f => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                if !vertex_buffer.is_empty() {
-                    if let Some(_) = vertex_buffer.last() {
-                        vertex_buffer.push(None);
-                    }
+            Self::J => {
+                payload.update_current_position();
+                if let Some(_) = payload.vertex_buffer.last() {
+                    payload.vertex_buffer.push(None);
                 }
-                vertex_buffer.push(Some(*current_pos));
+                payload.push_current_position();
             },
             Self::L => {
-                *current_angle += 60.0f32.to_radians();
+                payload.increase_current_angle(60.0f32.to_radians());
             },
             Self::R => {
-                *current_angle -= 60.0f32.to_radians();
+                payload.decrease_current_angle(60.0f32.to_radians());
             },
         }
     }
@@ -384,10 +382,10 @@ impl Replacement for SierpinskiTriangle {
     fn replacement(&self) -> Option<Vec<Self>> {
         match self {
             Self::F => {
-                Some(vec![Self::F, Self::R, Self::R, Self::F, Self::R, Self::R, Self::F, Self::R, Self::R, Self::f, Self::f])
+                Some(vec![Self::F, Self::R, Self::R, Self::F, Self::R, Self::R, Self::F, Self::R, Self::R, Self::J, Self::J])
             },
-            Self::f => {
-                Some(vec![Self::f, Self::f])
+            Self::J => {
+                Some(vec![Self::J, Self::J])
             }
             _ => None,
         }
@@ -405,28 +403,25 @@ pub enum FirstPlant {
 }
 
 impl Operation for FirstPlant {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
             Self::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+                payload.update_current_position();
+                payload.push_current_position();
             },
             Self::L => {
-                *current_angle += 25.0f32.to_radians();
+                payload.increase_current_angle(25.0f32.to_radians());
             },
             Self::R => {
-                *current_angle -= 25.0f32.to_radians();
+                payload.decrease_current_angle(25.0f32.to_radians());
             },
             Self::PUSH => {
-                coordinate_buffer.push((*current_pos, *current_angle));
+                payload.save_current_position_and_angle();
             },
             Self::POP => {
-                if let Some((stored_position, stored_angle)) = coordinate_buffer.pop() {
-                    *current_angle = stored_angle;
-                    *current_pos = stored_position;
-                }
-                vertex_buffer.push(None);
-                vertex_buffer.push(Some(*current_pos));
+                payload.pop_and_restore_current_position_and_angle();
+                payload.vertex_buffer.push(None);
+                payload.push_current_position();
             },
             _ => (),
         }
@@ -461,28 +456,25 @@ pub enum PlantOne {
 }
 
 impl Operation for PlantOne {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
             Self::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+                payload.update_current_position();
+                payload.push_current_position();
             },
             Self::L => {
-                *current_angle += 25.0f32.to_radians();
+                payload.increase_current_angle(25.0f32.to_radians());
             },
             Self::R => {
-                *current_angle -= 25.0f32.to_radians();
+                payload.decrease_current_angle(25.0f32.to_radians());
             },
             Self::PUSH => {
-                coordinate_buffer.push((*current_pos, *current_angle));
+                payload.save_current_position_and_angle();
             },
             Self::POP => {
-                if let Some((stored_position, stored_angle)) = coordinate_buffer.pop() {
-                    *current_angle = stored_angle;
-                    *current_pos = stored_position;
-                }
-                vertex_buffer.push(None);
-                vertex_buffer.push(Some(*current_pos));
+                payload.pop_and_restore_current_position_and_angle();
+                payload.vertex_buffer.push(None);
+                payload.push_current_position();
             },
             _ => (),
         }
@@ -496,7 +488,7 @@ impl Replacement for PlantOne {
     fn replacement(&self) -> Option<Vec<Self>> {
         match self {
             Self::X => {
-                Some(vec![Self::F, Self::L, Self::PUSH, Self::PUSH, Self::X, Self::POP, Self::R, Self::R, Self::X, Self::POP, Self::F, Self::X])
+                Some(vec![Self::F, Self::L, Self::PUSH, Self::L, Self::PUSH, Self::R, Self::R, Self::R, Self::PUSH, Self::X, Self::POP, Self::X, Self::POP, Self::X, Self::POP, Self::F, Self::X])
             },
             Self::F => {
                 Some(vec![Self::F, Self::F])
@@ -518,28 +510,25 @@ pub enum PlantTwo {
 }
 
 impl Operation for PlantTwo {
-    fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32) {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
         match self {
             Self::F => {
-                *current_pos += MathPosition::new(current_angle.cos(), current_angle.sin());
-                vertex_buffer.push(Some(*current_pos));
+                payload.update_current_position();
+                payload.push_current_position();
             },
             Self::L => {
-                *current_angle += 25.0f32.to_radians();
+                payload.increase_current_angle(25.0f32.to_radians());
             },
             Self::R => {
-                *current_angle -= 25.0f32.to_radians();
+                payload.decrease_current_angle(25.0f32.to_radians());
             },
             Self::PUSH => {
-                coordinate_buffer.push((*current_pos, *current_angle));
+                payload.save_current_position_and_angle();
             },
             Self::POP => {
-                if let Some((stored_position, stored_angle)) = coordinate_buffer.pop() {
-                    *current_angle = stored_angle;
-                    *current_pos = stored_position;
-                }
-                vertex_buffer.push(None);
-                vertex_buffer.push(Some(*current_pos));
+                payload.pop_and_restore_current_position_and_angle();
+                payload.vertex_buffer.push(None);
+                payload.push_current_position();
             },
             _ => (),
         }
@@ -553,7 +542,64 @@ impl Replacement for PlantTwo {
     fn replacement(&self) -> Option<Vec<Self>> {
         match self {
             Self::X => {
-                Some(vec![Self::F, Self::PUSH, Self::R, Self::R, Self::R, Self::PUSH, Self::X, Self::POP, Self::X, Self::POP, Self::F, Self::R, Self::X])
+                Some(vec![Self::F, Self::R, Self::PUSH, Self::PUSH, Self::Y, Self::POP, Self::L, Self::L, Self::X, Self::POP, Self::F, Self::Y])
+            },
+            Self::Y => {
+                Some(vec![Self::F, Self::L, Self::PUSH, Self::PUSH, Self::X, Self::POP, Self::R, Self::R, Self::Y, Self::POP, Self::F, Self::Y])
+            }
+            Self::F => {
+                Some(vec![Self::F, Self::F])
+            }
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum PlantThree {
+    F,
+    X,
+    Y,
+    L,
+    R,
+    PUSH,
+    POP,
+}
+
+impl Operation for PlantThree {
+    fn apply(&self, payload: &mut LindenmayerPayload) {
+        match self {
+            Self::F => {
+                payload.update_current_position();
+                payload.push_current_position();
+            },
+            Self::L => {
+                payload.increase_current_angle(20.0f32.to_radians());
+            },
+            Self::R => {
+                payload.decrease_current_angle(20.0f32.to_radians());
+            },
+            Self::PUSH => {
+                payload.save_current_position_and_angle();
+            },
+            Self::POP => {
+                payload.pop_and_restore_current_position_and_angle();
+                payload.vertex_buffer.push(None);
+                payload.push_current_position();
+            },
+            _ => (),
+        }
+    }
+    fn forward() -> Self {
+        Self::F
+    }
+}
+
+impl Replacement for PlantThree {
+    fn replacement(&self) -> Option<Vec<Self>> {
+        match self {
+            Self::X => {
+                Some(vec![Self::F, Self::L, Self::PUSH, Self::X, Self::POP, Self::R, Self::F, Self::R, Self::R, Self::PUSH, Self::X, Self::POP, Self::L, Self::L, Self::X])
             },
             Self::F => {
                 Some(vec![Self::F, Self::F])
