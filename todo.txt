@@ -1,16 +1,28 @@
-Next steps:
-- Maybe provide a struct Language that encapsulates an alphabet, a dictionary
+Requirements:
 
-- Think again about the apply_replacement_rules function in word. This currently works just fine for Lindenmayer systems.
-    I also like the idea of treating words of functions similarly, but iteration for such words is usually given by
-    just appending the same function again at the end of the word. This is currently not possible with the current implementation.
+- I want the user to be able to define their own letters / alphabet / words.
+    This probably requires to provide a marker trait.
+- I want the user to be able to provide operations associated with the letters / alphabet / words.
+    The operations need to be changeable at runtime.
+    The operations should NOT be per Instance of a letter / word / alphabet.
+    Instead, if an operation is changed, every instance associated with that operation should be updated.
+- I want the user to be able to provide replacements associated with the letters / alphabet / words.
+    The replacements should be changeable at runtime.
+    The replacements should NOT be per Instance of a letter / word / alphabet.
+    Instead, if an operation is changed, every instance associated with that operation should be updated.
+- I want the user to be able to provide a starting word for their fractal.
+    The starting word needs to be changeable at runtime.
+- A fractal needs an angle.
+- A fractal needs a starting word.
 
-New stuff:
+Solution:
 
-With the new dictionary structure, it is important that every valid word over the Language
-is listed in the dictionary, otherwise, the functions on word will not deliver the expected results.
+User implements the marker Trait Letter on their own type (enum).
+User implements the marker Trait Payload on their own payload type that should be modified by the associated operations.
+I provide a HashMap that expects something that is Letter as Key, and maps to a replacement (fn<L: Letter>(letter: L) -> Option<Vec<L>>)
+I provide a HashMap that expects something that is Letter as Key, and maps to an operation that expects a Payload (fn<P: Payload>(payload: &mut P))
+I could abstract the replacement and the operation into an own type (struct).
+Wrap HashMap(s) into a Fractal<Letter, Payload>, to provide helper methods for modifying the fractal at replacements and operations at runtime, once created.
 
-Maybe we should implement checks for consistency of words and the dictionary. On the other hand, the dictionary is user defined.
-But it is probably hard to check for consistency: we would need to check that a given word is only a sequence of valid words.
-
-Look again if we can provide a Debug implementation for Dictionaries, i.e. how to implement Debug manually on fn(&[L], &P)
+This will still not allow you to change the fractal at runtime to a new fractal, as changing the letter type or the payload will create a new fractal type.
+But this could be solved by creating a new fractal via a callback.

@@ -1,13 +1,14 @@
 extern crate allegro;
 
-mod word;
-mod semantics;
-mod dictionary;
-mod fractal;
-mod word_slice;
+//mod word;
+//mod semantics;
+//mod dictionary;
+//mod fractal;
+//mod word_slice;
 
 mod coordinates;
 mod common_fractals;
+mod tryout;
 
 use allegro::*;
 use allegro_primitives::*;
@@ -16,183 +17,184 @@ use coordinates::MathPosition;
 use coordinates::ScreenPosition;
 
 use common_fractals::*;
+use tryout::*;
 
 const DISPLAY_WIDTH: i32 = 1900;
 const DISPLAY_HEIGHT: i32 = 1080;
 const S: f32 = 300.0;
 
-pub struct LindenmayerFractal<Op: Operation + Replacement> {
-    starting_word: Vec<Op>,
-    word_buffer: Vec<Vec<Op>>,
-    iteration_buffer: Vec<Vec<Option<MathPosition>>>,
-    payload: LindenmayerPayload,
-}
+//pub struct LindenmayerFractal<Op: Operation + Replacement> {
+//    starting_word: Vec<Op>,
+//    word_buffer: Vec<Vec<Op>>,
+//    iteration_buffer: Vec<Vec<Option<MathPosition>>>,
+//    payload: LindenmayerPayload,
+//}
+//
+//impl<Op: Operation + Replacement> LindenmayerFractal<Op> {
+//    pub fn new(starting_word: &[Op]) -> Self {
+//        let starting_word = starting_word.to_owned();
+//        let mut payload = LindenmayerPayload::new();
+//        payload.compute_vertices(&starting_word, S);
+//        let iteration_buffer = vec![payload.vertex_buffer.clone()];
+//        let word_buffer = vec![starting_word.clone()];
+//        Self {
+//            starting_word,
+//            word_buffer,
+//            iteration_buffer,
+//            payload,
+//        }
+//    }
+//    pub fn next_operations(&mut self) {
+//        let mut iteration_result = vec![];
+//        if let Some(word) = self.word_buffer.last() {
+//            for &op in word {
+//                if let Some(mut replacement) = op.replacement() {
+//                    iteration_result.append(&mut replacement);
+//                } else {
+//                    iteration_result.push(op);
+//                }
+//            }
+//        }
+//        self.word_buffer.push(iteration_result);
+//    }
+//    pub fn next_iteration(&mut self) {
+//        let staunching_factor = Self::compute_staunching_factor();
+//        let depth = self.word_buffer.len() - 1;
+//
+//        if let Some(word) = self.word_buffer.last() {
+//            self.payload.compute_vertices(word, S);
+//            for entry in &mut self.payload.vertex_buffer {
+//                if let Some(vertex) = entry {
+//                    vertex.scale(staunching_factor.powi(depth as i32));
+//                }
+//            }
+//            self.iteration_buffer.push(self.payload.vertex_buffer.clone());
+//        }
+//    }
+//    pub fn iterate(&mut self, depth: usize) {
+//        if depth >= self.iteration_buffer.len() {
+//            for _ in 1..=(depth - self.iteration_buffer.len() + 1) {
+//                self.next_operations();
+//                self.next_iteration();
+//            }
+//        }
+//    }
+//    fn compute_staunching_factor() -> f32 {
+//        let mut payload = LindenmayerPayload::new();
+//        let mut staunching_factor = 1.0;
+//        if let Some(replacement) = Op::forward().replacement() {
+//            payload.compute_base_vertices(&replacement);
+//            staunching_factor = 1.0 / payload.vertex_buffer.last().unwrap().unwrap().norm();
+//        }
+//        return staunching_factor;
+//    }
+//}
 
-impl<Op: Operation + Replacement> LindenmayerFractal<Op> {
-    pub fn new(starting_word: &[Op]) -> Self {
-        let starting_word = starting_word.to_owned();
-        let mut payload = LindenmayerPayload::new();
-        payload.compute_vertices(&starting_word, S);
-        let iteration_buffer = vec![payload.vertex_buffer.clone()];
-        let word_buffer = vec![starting_word.clone()];
-        Self {
-            starting_word,
-            word_buffer,
-            iteration_buffer,
-            payload,
-        }
-    }
-    pub fn next_operations(&mut self) {
-        let mut iteration_result = vec![];
-        if let Some(word) = self.word_buffer.last() {
-            for &op in word {
-                if let Some(mut replacement) = op.replacement() {
-                    iteration_result.append(&mut replacement);
-                } else {
-                    iteration_result.push(op);
-                }
-            }
-        }
-        self.word_buffer.push(iteration_result);
-    }
-    pub fn next_iteration(&mut self) {
-        let staunching_factor = Self::compute_staunching_factor();
-        let depth = self.word_buffer.len() - 1;
-
-        if let Some(word) = self.word_buffer.last() {
-            self.payload.compute_vertices(word, S);
-            for entry in &mut self.payload.vertex_buffer {
-                if let Some(vertex) = entry {
-                    vertex.scale(staunching_factor.powi(depth as i32));
-                }
-            }
-            self.iteration_buffer.push(self.payload.vertex_buffer.clone());
-        }
-    }
-    pub fn iterate(&mut self, depth: usize) {
-        if depth >= self.iteration_buffer.len() {
-            for _ in 1..=(depth - self.iteration_buffer.len() + 1) {
-                self.next_operations();
-                self.next_iteration();
-            }
-        }
-    }
-    fn compute_staunching_factor() -> f32 {
-        let mut payload = LindenmayerPayload::new();
-        let mut staunching_factor = 1.0;
-        if let Some(replacement) = Op::forward().replacement() {
-            payload.compute_base_vertices(&replacement);
-            staunching_factor = 1.0 / payload.vertex_buffer.last().unwrap().unwrap().norm();
-        }
-        return staunching_factor;
-    }
-}
-
-pub struct LindenmayerPayload {
-    vertex_buffer: Vec<Option<MathPosition>>,
-    coordinate_buffer: Vec<(MathPosition, f32)>,
-    current_position: MathPosition,
-    current_angle: f32,
-}
-
-impl LindenmayerPayload {
-    pub fn new() -> Self {
-        Self {
-            vertex_buffer: vec![],
-            coordinate_buffer: vec![],
-            current_position: MathPosition::new(0.0, 0.0),
-            current_angle: 90.0f32.to_radians(),
-        }
-    }
-    pub fn compute_base_vertices<Op: Operation>(&mut self, operations: &[Op]) {
-        self.clear_vertex_buffer();
-        self.clear_current_position();
-        self.clear_current_angle();
-        self.vertex_buffer.push(Some(self.current_position));
-        for op in operations {
-            op.apply(self);
-        }
-    }
-    pub fn compute_vertices<Op: Operation>(&mut self, operations: &[Op], scaling_factor: f32) {
-        self.compute_base_vertices(operations);
-        self.apply_center_offset();
-
-        for entry in &mut self.vertex_buffer {
-            if let Some(vertex) = entry {
-                vertex.scale(scaling_factor);
-            }
-        }
-    }
-    pub fn compute_center(&mut self) -> Option<MathPosition> {
-        let mut center = MathPosition::new(0.0, 0.0);
-
-        let mut n_vertices = 0;
-        for entry in &mut self.vertex_buffer {
-            if let Some(vertex) = entry {
-                center += *vertex;
-                n_vertices += 1;
-            }
-        }
-
-        // If we have a closed curve and the first index equals the last,
-        // do not consider the redundant point in the computation of the center.
-        // if (*vertices.first().unwrap() - *vertices.last().unwrap()).norm() <= 5.0 * f32::EPSILON {
-        //     n_vertices = vertices.len() - 1;
-        // }
-
-        // Check for points that are redundant.
-        // We need -1 here since our vertices always include the first also as the last one
-        if n_vertices == 0 {
-            return None;
-        }
-        center.scale(1.0 / (n_vertices as f32));
-        return Some(center);
-    }
-    pub fn apply_center_offset(&mut self) {
-        let center = self.compute_center();
-
-        if let Some(center) = center {
-            for entry in &mut self.vertex_buffer {
-                if let Some(vertex) = entry {
-                    *vertex -= center;
-                }
-            }
-        }
-    }
-    pub fn clear_vertex_buffer(&mut self) {
-        self.vertex_buffer.clear();
-    }
-    pub fn clear_coordinate_buffer(&mut self) {
-        self.coordinate_buffer.clear();
-    }
-    pub fn clear_current_position(&mut self) {
-        self.current_position = MathPosition::new(0.0, 0.0);
-    }
-    pub fn clear_current_angle(&mut self) {
-        self.current_angle = 90.0f32.to_radians();
-    }
-    pub fn update_current_position(&mut self) {
-        self.current_position += MathPosition::new(self.current_angle.cos(), self.current_angle.sin());
-    }
-    pub fn increase_current_angle(&mut self, delta: f32) {
-        self.current_angle += delta;
-    }
-    pub fn decrease_current_angle(&mut self, delta: f32) {
-        self.current_angle -= delta;
-    }
-    pub fn push_current_position(&mut self) {
-        self.vertex_buffer.push(Some(self.current_position));
-    }
-    pub fn save_current_position_and_angle(&mut self) {
-        self.coordinate_buffer.push((self.current_position, self.current_angle));
-    }
-    pub fn pop_and_restore_current_position_and_angle(&mut self) {
-        if let Some((stored_position, stored_angle)) = self.coordinate_buffer.pop() {
-            self.current_position = stored_position;
-            self.current_angle = stored_angle;
-        }
-    }
-}
+//pub struct LindenmayerPayload {
+//    vertex_buffer: Vec<Option<MathPosition>>,
+//    coordinate_buffer: Vec<(MathPosition, f32)>,
+//    current_position: MathPosition,
+//    current_angle: f32,
+//}
+//
+//impl LindenmayerPayload {
+//    pub fn new() -> Self {
+//        Self {
+//            vertex_buffer: vec![],
+//            coordinate_buffer: vec![],
+//            current_position: MathPosition::new(0.0, 0.0),
+//            current_angle: 90.0f32.to_radians(),
+//        }
+//    }
+//    pub fn compute_base_vertices<Op: Operation>(&mut self, operations: &[Op]) {
+//        self.clear_vertex_buffer();
+//        self.clear_current_position();
+//        self.clear_current_angle();
+//        self.vertex_buffer.push(Some(self.current_position));
+//        for op in operations {
+//            op.apply(self);
+//        }
+//    }
+//    pub fn compute_vertices<Op: Operation>(&mut self, operations: &[Op], scaling_factor: f32) {
+//        self.compute_base_vertices(operations);
+//        self.apply_center_offset();
+//
+//        for entry in &mut self.vertex_buffer {
+//            if let Some(vertex) = entry {
+//                vertex.scale(scaling_factor);
+//            }
+//        }
+//    }
+//    pub fn compute_center(&mut self) -> Option<MathPosition> {
+//        let mut center = MathPosition::new(0.0, 0.0);
+//
+//        let mut n_vertices = 0;
+//        for entry in &mut self.vertex_buffer {
+//            if let Some(vertex) = entry {
+//                center += *vertex;
+//                n_vertices += 1;
+//            }
+//        }
+//
+//        // If we have a closed curve and the first index equals the last,
+//        // do not consider the redundant point in the computation of the center.
+//        // if (*vertices.first().unwrap() - *vertices.last().unwrap()).norm() <= 5.0 * f32::EPSILON {
+//        //     n_vertices = vertices.len() - 1;
+//        // }
+//
+//        // Check for points that are redundant.
+//        // We need -1 here since our vertices always include the first also as the last one
+//        if n_vertices == 0 {
+//            return None;
+//        }
+//        center.scale(1.0 / (n_vertices as f32));
+//        return Some(center);
+//    }
+//    pub fn apply_center_offset(&mut self) {
+//        let center = self.compute_center();
+//
+//        if let Some(center) = center {
+//            for entry in &mut self.vertex_buffer {
+//                if let Some(vertex) = entry {
+//                    *vertex -= center;
+//                }
+//            }
+//        }
+//    }
+//    pub fn clear_vertex_buffer(&mut self) {
+//        self.vertex_buffer.clear();
+//    }
+//    pub fn clear_coordinate_buffer(&mut self) {
+//        self.coordinate_buffer.clear();
+//    }
+//    pub fn clear_current_position(&mut self) {
+//        self.current_position = MathPosition::new(0.0, 0.0);
+//    }
+//    pub fn clear_current_angle(&mut self) {
+//        self.current_angle = 90.0f32.to_radians();
+//    }
+//    pub fn update_current_position(&mut self) {
+//        self.current_position += MathPosition::new(self.current_angle.cos(), self.current_angle.sin());
+//    }
+//    pub fn increase_current_angle(&mut self, delta: f32) {
+//        self.current_angle += delta;
+//    }
+//    pub fn decrease_current_angle(&mut self, delta: f32) {
+//        self.current_angle -= delta;
+//    }
+//    pub fn push_current_position(&mut self) {
+//        self.vertex_buffer.push(Some(self.current_position));
+//    }
+//    pub fn save_current_position_and_angle(&mut self) {
+//        self.coordinate_buffer.push((self.current_position, self.current_angle));
+//    }
+//    pub fn pop_and_restore_current_position_and_angle(&mut self) {
+//        if let Some((stored_position, stored_angle)) = self.coordinate_buffer.pop() {
+//            self.current_position = stored_position;
+//            self.current_angle = stored_angle;
+//        }
+//    }
+//}
 
 pub trait Operation: Copy {
     fn apply(&self, payload: &mut LindenmayerPayload);
@@ -204,46 +206,63 @@ pub trait Replacement: Sized {
     fn replacement(&self) -> Option<Vec<Self>>;
 }
 
-pub fn iterate_operations<Op: Operation + Replacement>(operations: &[Op]) -> Vec<Op> {
-    let mut iteration_result = vec![];
+//pub fn iterate_operations<Op: Operation + Replacement>(operations: &[Op]) -> Vec<Op> {
+//    let mut iteration_result = vec![];
+//
+//    for &op in operations {
+//        if let Some(mut replacement) = op.replacement() {
+//            iteration_result.append(&mut replacement);
+//        } else {
+//            iteration_result.push(op);
+//        }
+//    }
+//    return iteration_result;
+//}
+//
+//pub fn iterate_fractal<Op: Operation + Replacement>(base_operations: &[Op], iteration_depth: usize) -> Vec<Vec<Op>> {
+//    let mut iteration_results: Vec<Vec<Op>> = vec![base_operations.to_owned()];
+//
+//    for index in 1..=iteration_depth {
+//        let operations = iterate_operations(&iteration_results[index - 1]);
+//        iteration_results.push(operations);
+//    }
+//
+//    return iteration_results;
+//}
 
-    for &op in operations {
-        if let Some(mut replacement) = op.replacement() {
-            iteration_result.append(&mut replacement);
-        } else {
-            iteration_result.push(op);
-        }
-    }
-    return iteration_result;
-}
+//pub fn iterated_vertices<Op: Operation + Replacement>(iterated_operations: &[Vec<Op>]) -> Vec<Vec<Option<MathPosition>>> {
+//    let mut iteration_results = vec![];
+//    let mut payload = LindenmayerPayload::new();
+//    let staunching_factor = compute_staunching_factor::<Op>();
+//
+//    for (index, operations) in iterated_operations.iter().enumerate() {
+//        payload.compute_vertices(operations, S);
+//        for entry in &mut payload.vertex_buffer {
+//            if let Some(vertex) = entry {
+//                vertex.scale(staunching_factor.powi(index as i32));
+//            }
+//        }
+//        iteration_results.push(payload.vertex_buffer.clone());
+//    }
+//    return iteration_results;
+//}
 
-pub fn iterate_fractal<Op: Operation + Replacement>(base_operations: &[Op], iteration_depth: usize) -> Vec<Vec<Op>> {
-    let mut iteration_results: Vec<Vec<Op>> = vec![base_operations.to_owned()];
-
-    for index in 1..=iteration_depth {
-        let operations = iterate_operations(&iteration_results[index - 1]);
-        iteration_results.push(operations);
-    }
-
-    return iteration_results;
-}
-
-pub fn iterated_vertices<Op: Operation + Replacement>(iterated_operations: &[Vec<Op>]) -> Vec<Vec<Option<MathPosition>>> {
-    let mut iteration_results = vec![];
-    let mut payload = LindenmayerPayload::new();
-    let staunching_factor = compute_staunching_factor::<Op>();
-
-    for (index, operations) in iterated_operations.iter().enumerate() {
-        payload.compute_vertices(operations, S);
-        for entry in &mut payload.vertex_buffer {
-            if let Some(vertex) = entry {
-                vertex.scale(staunching_factor.powi(index as i32));
-            }
-        }
-        iteration_results.push(payload.vertex_buffer.clone());
-    }
-    return iteration_results;
-}
+// pub fn iterated_vertices<Op: Operation + Replacement>(iterated_operations: &[Vec<Op>]) -> Vec<Vec<Option<MathPosition>>> {
+//     let mut iteration_results = vec![];
+//     let mut payload = LindenmayerPayload::new();
+//     let staunching_factor = compute_staunching_factor::<Op>();
+// 
+//     for (index, operations) in iterated_operations.iter().enumerate() {
+//         payload.compute_vertices(operations, S);
+//         for entry in &mut payload.vertex_buffer {
+//             if let Some(vertex) = entry {
+//                 vertex.scale(staunching_factor.powi(index as i32));
+//             }
+//         }
+//         iteration_results.push(payload.vertex_buffer.clone());
+//     }
+//     return iteration_results;
+// }
 
 // Compute the center of a given set of vertices
 //pub fn compute_center(vertices: &[Option<MathPosition>]) -> Option<MathPosition> {
@@ -285,15 +304,15 @@ pub fn iterated_vertices<Op: Operation + Replacement>(iterated_operations: &[Vec
 //    }
 //}
 
-fn compute_staunching_factor<Op: Operation + Replacement>() -> f32 {
-    let mut payload = LindenmayerPayload::new();
-    let mut staunching_factor = 1.0;
-    if let Some(replacement) = Op::forward().replacement() {
-        payload.compute_base_vertices(&replacement);
-        staunching_factor = 1.0 / payload.vertex_buffer.last().unwrap().unwrap().norm();
-    }
-    return staunching_factor;
-}
+// fn compute_staunching_factor<Op: Operation + Replacement>() -> f32 {
+//     let mut payload = LindenmayerPayload::new();
+//     let mut staunching_factor = 1.0;
+//     if let Some(replacement) = Op::forward().replacement() {
+//         payload.compute_base_vertices(&replacement);
+//         staunching_factor = 1.0 / payload.vertex_buffer.last().unwrap().unwrap().norm();
+//     }
+//     return staunching_factor;
+// }
 
 // pub fn compute_base_vertices<Op: Operation>(operations: &[Op]) -> Vec<Option<MathPosition>> {
 //     let mut vertex_buffer = vec![];
@@ -420,9 +439,16 @@ allegro_main!
     // let base_operations = vec![PlantThree::X];
     // let iterated_operations = iterate_fractal(&base_operations, 15);
     // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
+    
+    let mut fractals = vec![
+        LindenmayerSystem::koch(),
+        LindenmayerSystem::levy(),
+        LindenmayerSystem::dragon_curve(),
+        LindenmayerSystem::first_plant(),
+    ];
 
-    let mut plant_three = LindenmayerFractal::new(&[PlantThree::X]);
-    plant_three.iterate(10);
+    let mut current_fractal = 0;
+    fractals[current_fractal].update_vertex_stack(8);
 
     queue.register_event_source(display.get_event_source());
     queue.register_event_source(timer.get_event_source());
@@ -436,7 +462,9 @@ allegro_main!
         {
             core.clear_to_color(Color::from_rgb_f(0.1, 0.1, 0.1));
             // draw_single_lines(&primitives, &vertex_iterations[current_depth], Color::from_rgb_f(0.7, 0.9, 0.7));
-            draw_single_lines(&primitives, &plant_three.iteration_buffer[current_depth], Color::from_rgb_f(0.5, 0.9, 0.7));
+            if let Some(vertices) = fractals[current_fractal].get_vertex_stack_at(current_depth) {
+                draw_single_lines(&primitives, &vertices[..], Color::from_rgb_f(0.5, 0.9, 0.7));
+            }
 
             core.flip_display();
             redraw = false;
@@ -466,7 +494,7 @@ allegro_main!
                 match keycode {
                     KeyCode::I => {
                         println!("Key: I");
-                        if current_depth < 10 {
+                        if current_depth < 8 {
                             current_depth += 1;
                         }
                     },
@@ -475,6 +503,12 @@ allegro_main!
                         if current_depth > 0 {
                             current_depth -= 1;
                         }
+                    },
+                    KeyCode::C => {
+                        println!("Key: C");
+                        current_fractal += 1;
+                        current_fractal = current_fractal.checked_rem_euclid(fractals.len()).unwrap();
+                        fractals[current_fractal].update_vertex_stack(8);
                     },
                     _ => (),
                 }
