@@ -7,8 +7,9 @@ extern crate allegro;
 //mod word_slice;
 
 mod coordinates;
-mod common_fractals;
-mod tryout;
+//mod common_fractals;
+//mod tryout;
+//mod letter;
 
 use allegro::*;
 use allegro_primitives::*;
@@ -16,8 +17,11 @@ use allegro_primitives::*;
 use coordinates::MathPosition;
 use coordinates::ScreenPosition;
 
-use common_fractals::*;
-use tryout::*;
+mod check_this;
+use check_this::*;
+
+//use common_fractals::*;
+//use tryout::*;
 
 const DISPLAY_WIDTH: i32 = 1900;
 const DISPLAY_HEIGHT: i32 = 1080;
@@ -196,15 +200,15 @@ const S: f32 = 300.0;
 //    }
 //}
 
-pub trait Operation: Copy {
-    fn apply(&self, payload: &mut LindenmayerPayload);
-    // fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32);
-    fn forward() -> Self;
-}
+//pub trait Operation: Copy {
+//    fn apply(&self, payload: &mut LindenmayerPayload);
+//    // fn apply(&self, vertex_buffer: &mut Vec<Option<MathPosition>>, coordinate_buffer: &mut Vec<(MathPosition, f32)>, current_pos: &mut MathPosition, current_angle: &mut f32);
+//    fn forward() -> Self;
+//}
 
-pub trait Replacement: Sized {
-    fn replacement(&self) -> Option<Vec<Self>>;
-}
+//pub trait Replacement: Sized {
+//    fn replacement(&self) -> Option<Vec<Self>>;
+//}
 
 //pub fn iterate_operations<Op: Operation + Replacement>(operations: &[Op]) -> Vec<Op> {
 //    let mut iteration_result = vec![];
@@ -386,7 +390,7 @@ allegro_main!
     let timer = Timer::new(&core, 1.0 / 60.0).unwrap();
     let queue = EventQueue::new(&core).unwrap();
 
-    let mut current_depth = 0;
+    //let mut current_depth = 0;
 
     // let base_operations = vec![Koch::F, Koch::R, Koch::R, Koch::F, Koch::R, Koch::R, Koch::F];
     // let iterated_operations = iterate_fractal(&base_operations, 10);
@@ -440,19 +444,40 @@ allegro_main!
     // let iterated_operations = iterate_fractal(&base_operations, 15);
     // let vertex_iterations = iterated_vertices(&iterated_operations[..]);
     
-    let mut fractals = vec![
-        LindenmayerSystem::koch(),
-        LindenmayerSystem::levy(),
-        LindenmayerSystem::dragon_curve(),
-        LindenmayerSystem::first_plant(),
-    ];
+    //let mut fractals = vec![
+    //    LindenmayerSystem::koch(),
+    //    LindenmayerSystem::levy(),
+    //    LindenmayerSystem::dragon_curve(),
+    //    LindenmayerSystem::first_plant(),
+    //];
 
-    let mut current_fractal = 0;
-    fractals[current_fractal].update_vertex_stack(8);
+    //let mut current_fractal = 0;
+    //fractals[current_fractal].update_vertex_stack(8);
 
     queue.register_event_source(display.get_event_source());
     queue.register_event_source(timer.get_event_source());
     queue.register_event_source(core.get_keyboard_event_source().unwrap());
+
+    let first_word = Word::new(
+        &[
+            MyFirstLetter::Forward {length: 1.0f32},
+            MyFirstLetter::TurnLeft {angle: 1.0f32},
+            MyFirstLetter::TurnRight {angle: 1.0f32},
+        ]
+    );
+    let second_word = Word::new(
+        &[
+            MySecondLetter::Forward {length: 0.5f32},
+            MySecondLetter::TurnLeft {angle: 0.5f32},
+            MySecondLetter::TurnRight {angle: 0.5f32},
+        ]
+    );
+
+    println!("{}", first_word);
+    println!("{}", second_word);
+
+    let mut holder = WordHolder::new(Box::new(first_word));
+    holder.change_word(Box::new(second_word));
 
     let mut redraw = true;
     timer.start();
@@ -462,9 +487,9 @@ allegro_main!
         {
             core.clear_to_color(Color::from_rgb_f(0.1, 0.1, 0.1));
             // draw_single_lines(&primitives, &vertex_iterations[current_depth], Color::from_rgb_f(0.7, 0.9, 0.7));
-            if let Some(vertices) = fractals[current_fractal].get_vertex_stack_at(current_depth) {
-                draw_single_lines(&primitives, &vertices[..], Color::from_rgb_f(0.5, 0.9, 0.7));
-            }
+            //if let Some(vertices) = fractals[current_fractal].get_vertex_stack_at(current_depth) {
+            //    draw_single_lines(&primitives, &vertices[..], Color::from_rgb_f(0.5, 0.9, 0.7));
+            //}
 
             core.flip_display();
             redraw = false;
@@ -490,29 +515,29 @@ allegro_main!
             //    iterated_operations = iterate_fractal(&base_operations, 10);
             //    vertex_iterations = iterated_vertices(&iterated_operations[..]);
             //},
-            KeyDown{source: _, timestamp: _, keycode, ..} => {
-                match keycode {
-                    KeyCode::I => {
-                        println!("Key: I");
-                        if current_depth < 8 {
-                            current_depth += 1;
-                        }
-                    },
-                    KeyCode::P => {
-                        println!("Key: P");
-                        if current_depth > 0 {
-                            current_depth -= 1;
-                        }
-                    },
-                    KeyCode::C => {
-                        println!("Key: C");
-                        current_fractal += 1;
-                        current_fractal = current_fractal.checked_rem_euclid(fractals.len()).unwrap();
-                        fractals[current_fractal].update_vertex_stack(8);
-                    },
-                    _ => (),
-                }
-            },
+            //KeyDown{source: _, timestamp: _, keycode, ..} => {
+            //    match keycode {
+            //        KeyCode::I => {
+            //            println!("Key: I");
+            //            if current_depth < 8 {
+            //                current_depth += 1;
+            //            }
+            //        },
+            //        KeyCode::P => {
+            //            println!("Key: P");
+            //            if current_depth > 0 {
+            //                current_depth -= 1;
+            //            }
+            //        },
+            //        KeyCode::C => {
+            //            println!("Key: C");
+            //            current_fractal += 1;
+            //            current_fractal = current_fractal.checked_rem_euclid(fractals.len()).unwrap();
+            //            fractals[current_fractal].update_vertex_stack(8);
+            //        },
+            //        _ => (),
+            //    }
+            //},
             _ => (),
         }
     }

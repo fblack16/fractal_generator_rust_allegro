@@ -1,14 +1,25 @@
-use std::fmt::Debug;
-use std::hash::Hash;
-
-pub trait Letter: Debug + PartialEq + Eq + Hash + Copy {
+pub trait Letter: Sized {
+    fn replacement(&self) -> Option<Vec<Self>>;
 }
 
-impl Letter for usize {
+pub enum MyLetters {
+    Forward,
+    TurnLeft,
+    TurnRight,
 }
 
-impl Letter for char {
-}
-
-impl Letter for fn(i32) -> i32 {
+impl Letter for MyLetters {
+    fn replacement(&self) -> Option<Vec<Self>> {
+        match self {
+            Self::Forward => {
+                None
+            },
+            Self::TurnLeft => {
+                None
+            },
+            Self::TurnRight => {
+                None
+            }
+        }
+    }
 }
