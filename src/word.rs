@@ -1,7 +1,6 @@
-use std::fmt::Debug;
-use std::ops::{Deref, DerefMut};
-use crate::dictionary::Dictionary;
-use crate::semantics::Payload;
+use std::fmt::{Debug, Display};
+use std::ops::{Deref, DerefMut, Index, Range, RangeFrom, RangeTo, RangeFull, RangeInclusive, RangeToInclusive, IndexMut};
+use std::slice::SliceIndex;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Word<T>(Vec<T>);
@@ -12,15 +11,40 @@ pub struct Word<T>(Vec<T>);
 //
 //****************************************************************************
 
-impl<T> std::fmt::Display for Word<T>
+impl<T> Display for Word<T>
 where
-    T: std::fmt::Display,
+    T: Display,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        for elem in self.iter() {
+        for elem in self {
             write!(f, "{}", elem)?;
         }
         Ok(())
+    }
+}
+
+//****************************************************************************
+//
+// Indexing Operations for Word<T>
+//
+//****************************************************************************
+
+impl<T, I> Index<I> for Word<T>
+where
+    I: SliceIndex<[T]>
+{
+    type Output = <I as SliceIndex<[T]>>::Output;
+    fn index(&self, index: I) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl<T, I> IndexMut<I> for Word<T>
+where
+    I: SliceIndex<[T]>
+{
+    fn index_mut(&mut self, index: I) -> &mut Self::Output {
+        &mut self.0[index]
     }
 }
 
@@ -32,80 +56,125 @@ where
 
 impl<T> Word<T>
 {
-    pub fn new() -> Self
+    pub fn new(content: Vec<T>) -> Self
     {
-        Word(Vec::new())
+        Word(content)
     }
 
-    pub fn first_subword(&self, valid_subwords: &[&Word<T>]) -> Option<&[T]>
-    where
-        T: PartialEq,
-    {
-        let mut longest_subword: &[T] = &[];
-        for &word in valid_subwords {
-            if !word.is_empty() && self[..].starts_with(word) {
-                if longest_subword.starts_with(word) {
-                    continue;
-                } else {
-                    longest_subword = &self[..word.len()];
-                }
-            }
-        }
-        if longest_subword.is_empty() {
-            return None;
-        }
-        return Some(longest_subword);
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
-    fn first_subword_slice<'a>(word: &'a [T], valid_subwords: &[&'a Word<T>]) -> Option<&'a [T]>
-    where
-        T: PartialEq,
-    {
-        let mut longest_subword: &[T] = &[];
-        for &subword in valid_subwords {
-            if !subword.is_empty() && word.starts_with(subword) {
-                if longest_subword.starts_with(subword) {
-                    continue;
-                } else {
-                    longest_subword = &word[..subword.len()];
-                }
-            }
-        }
-        if longest_subword.is_empty() {
-            return None;
-        }
-        return Some(longest_subword);
+    pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
+        self.into_iter()
     }
 
-    pub fn subwords<'a>(&'a self, valid_subwords: &[&'a Word<T>]) -> Vec<&'a [T]>
-    where
-        T: PartialEq,
-    {
-        let mut subwords = Vec::new();
-        let mut start = 0;
-        while let Some(word) = Word::first_subword_slice(&self[start..], valid_subwords) {
-            subwords.push(word);
-            start += word.len();
-        }
-        return subwords;
+    pub fn iter_mut(&mut self) -> <&mut Self as IntoIterator>::IntoIter {
+        self.into_iter()
     }
 
-    pub fn contains_word(&self, word: &[T]) -> bool
+    //pub fn first_subword(&self, valid_subwords: &[&Word<T>]) -> Option<&[T]>
+    //where
+    //    T: PartialEq,
+    //{
+    //    let mut longest_subword: &[T] = &[];
+    //    for &word in valid_subwords {
+    //        if !word.is_empty() && self[..].starts_with(word) {
+    //            if longest_subword.starts_with(word) {
+    //                continue;
+    //            } else {
+    //                longest_subword = &self[..word.len()];
+    //            }
+    //        }
+    //    }
+    //    if longest_subword.is_empty() {
+    //        return None;
+    //    }
+    //    return Some(longest_subword);
+    //}
+
+    //fn first_subword_slice<'a>(word: &'a [T], valid_subwords: &[&'a Word<T>]) -> Option<&'a [T]>
+    //where
+    //    T: PartialEq,
+    //{
+    //    let mut longest_subword: &[T] = &[];
+    //    for &subword in valid_subwords {
+    //        if !subword.is_empty() && word.starts_with(subword) {
+    //            if longest_subword.starts_with(subword) {
+    //                continue;
+    //            } else {
+    //                longest_subword = &word[..subword.len()];
+    //            }
+    //        }
+    //    }
+    //    if longest_subword.is_empty() {
+    //        return None;
+    //    }
+    //    return Some(longest_subword);
+    //}
+
+    //pub fn subwords<'a>(&'a self, valid_subwords: &[&'a Word<T>]) -> Vec<&'a [T]>
+    //where
+    //    T: PartialEq,
+    //{
+    //    let mut subwords = Vec::new();
+    //    let mut start = 0;
+    //    while let Some(word) = Word::first_subword_slice(&self[start..], valid_subwords) {
+    //        subwords.push(word);
+    //        start += word.len();
+    //    }
+    //    return subwords;
+    //}
+
+    pub fn contains_subword(&self, subword: &[T]) -> bool
     where
         T: PartialEq + Eq,
     {
-        if self.is_empty() || word.is_empty() {
+        if self.is_empty() || subword.is_empty() {
             return false;
         }
 
         let mut is_contained = false;
         for (index, elem) in self.iter().enumerate() {
-            if elem == &word[0] && &self[index..index+word.len()] == word {
+            if elem == &subword[0] && &self[index..index + subword.len()] == subword {
                 is_contained = true;
             }
         }
 
         return is_contained;
+    }
+
+    pub fn get_first_occurence_of_subword(&self, subword: &[T]) -> Option<&[T]>
+    where
+        T: PartialEq + Eq,
+    {
+        for (index, elem) in self.iter().enumerate() {
+            if elem == &subword[0] && &self[index..index + subword.len()] == subword {
+                return Some(&self[index..index+subword.len()]);
+            }
+        }
+        return None;
+    }
+
+    pub fn get_all_occurrences_of_subword(&self, subword: &[T]) -> Option<Vec<&[T]>>
+    where
+        T: PartialEq + Eq,
+    {
+        let mut occurrences = Vec::new();
+        for (index, elem) in self.iter().enumerate() {
+            // Check what happens when we slice outside of self.
+            // Do we get an error?
+            // We might need an additional check: index + subword.len() <= self.len()
+            if elem == &subword[0] && &self[index..index + subword.len()] == subword {
+                occurrences.push(&self[index..index + subword.len()]);
+            }
+        }
+
+        if !occurrences.is_empty() {
+            return Some(occurrences);
+        }
+
+        return None;
     }
 
     // Since for fractals, the new word can get really long really fast,
@@ -115,41 +184,41 @@ impl<T> Word<T>
     // This is probably going to get expensive really fast, at least if the letters of type T
     // need a lot of memory. On the other hand, if we use zero-sized types for T,
     // it is possible that this does not cost us a thing.
-    pub fn apply_replacements<P: Payload>(&self, dictionary: &Dictionary<T, P>) -> Self
-    where
-        T: Copy + PartialEq + Eq + std::hash::Hash,
-    {
-        let valid_subwords: Vec<&Word<T>> = dictionary.keys().collect();
-        let word = self.subwords(&valid_subwords).into_iter()
-            .map(|word| {
-                if let Some(entry) = dictionary.get(&Word::from(word)) {
-                    match entry.replacement() {
-                        Some(replacement) => replacement,
-                        None => word,
-                    }
-                } else {
-                    word
-                }
-            })
-            .flatten()
-            .collect();
-        word
-    }
+    //pub fn apply_replacements<P: Payload>(&self, dictionary: &Dictionary<T, P>) -> Self
+    //where
+    //    T: Copy + PartialEq + Eq + std::hash::Hash,
+    //{
+    //    let valid_subwords: Vec<&Word<T>> = dictionary.keys().collect();
+    //    let word = self.subwords(&valid_subwords).into_iter()
+    //        .map(|word| {
+    //            if let Some(entry) = dictionary.get(&Word::from(word)) {
+    //                match entry.replacement() {
+    //                    Some(replacement) => replacement,
+    //                    None => word,
+    //                }
+    //            } else {
+    //                word
+    //            }
+    //        })
+    //        .flatten()
+    //        .collect();
+    //    word
+    //}
 
-    pub fn apply_semantics<P: Payload>(&self, dictionary: &Dictionary<T, P>, payload: &mut P)
-    where
-        T: Copy + PartialEq + Eq + std::hash::Hash,
-    {
-        let valid_subwords: Vec<&Word<T>> = dictionary.keys().collect();
-        for word in self.subwords(&valid_subwords).into_iter() {
-            if let Some(entry) = dictionary.get(&Word::from(word)) {
-                match entry.semantics() {
-                    Some(semantics) => semantics(&word, payload),
-                    None => (),
-                }
-            }
-        }
-    }
+    //pub fn apply_semantics<P: Payload>(&self, dictionary: &Dictionary<T, P>, payload: &mut P)
+    //where
+    //    T: Copy + PartialEq + Eq + std::hash::Hash,
+    //{
+    //    let valid_subwords: Vec<&Word<T>> = dictionary.keys().collect();
+    //    for word in self.subwords(&valid_subwords).into_iter() {
+    //        if let Some(entry) = dictionary.get(&Word::from(word)) {
+    //            match entry.semantics() {
+    //                Some(semantics) => semantics(&word, payload),
+    //                None => (),
+    //            }
+    //        }
+    //    }
+    //}
 }
 
 //****************************************************************************
@@ -175,20 +244,20 @@ impl<T> Word<T>
 // clone a word, but forget to derive Clone for it, since then,
 // you get a Vec as the return type where you expect a Word.
 
-impl<T> Deref for Word<T>
-{
-    type Target = Vec<T>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+//impl<T> Deref for Word<T>
+//{
+//    type Target = Vec<T>;
+//    fn deref(&self) -> &Self::Target {
+//        &self.0
+//    }
+//}
 
-impl<T> DerefMut for Word<T>
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
+//impl<T> DerefMut for Word<T>
+//{
+//    fn deref_mut(&mut self) -> &mut Self::Target {
+//        &mut self.0
+//    }
+//}
 
 //****************************************************************************
 //
@@ -347,188 +416,212 @@ where
 #[cfg(test)]
 mod tests {
 
+    use crate::check_this::Letter;
     use super::*;
-    use crate::dictionary::DictionaryEntry;
+
+    impl Letter for char {}
 
     #[test]
-    fn test_display() {
-        let numbers = vec![1, 2, 3, 4, 5];
-        let chars = vec!['a', 'b', 'c', 'd', 'e'];
-
-        let word_of_numbers: Word<usize> = numbers.into();
-        let word_of_chars: Word<char> = chars.into();
-
-        assert_eq!(format!("{}", word_of_numbers), "12345");
-        assert_eq!(format!("{}", word_of_chars), "abcde");
+    fn get_first_occurence_of_subword() {
+        let content = vec!['h', 'a', 'l', 'l', 'o', ' ', 'w', 'e', 'l', 't', ' ', 'h', 'a', 'l', 'l', 'o'];
+        let subword = ['h', 'a', 'l', 'l', 'o'];
+        let word = Word::new(content);
+        let first = word.get_first_occurence_of_subword(&subword);
+        assert!(first.is_some());
+        assert_eq!(first.unwrap(), &word[0..5]);
     }
 
     #[test]
-    fn test_first_subword_returns_none_for_empty_word() {
-        let word = Word::new();
-        let first = Word::from(1);
-        let second = Word::from(2);
-        let valid_subwords = vec![&first, &second];
-        let first_subword = word.first_subword(&valid_subwords);
-        assert!(first_subword.is_none());
+    fn get_all_occurrences_of_subword() {
+        let content = vec!['h', 'a', 'l', 'l', 'o', ' ', 'w', 'e', 'l', 't', ' ', 'h', 'a', 'l', 'l', 'o'];
+        let subword = ['h', 'a', 'l', 'l', 'o'];
+        let word = Word::new(content);
+        let all = word.get_all_occurrences_of_subword(&subword);
+        assert!(all.is_some());
+        let all = all.unwrap();
+        assert_eq!(all.len(), 2);
+        assert_eq!(all[0], &word[0..5]);
+        assert_eq!(all[1], &word[11..]);
     }
-
-    #[test]
-    fn test_first_subword_returns_none_if_valid_word_is_empty() {
-        let word = Word::from(1);
-        let first = Word::new();
-        let valid_subwords = vec![&first];
-        let first_subword = word.first_subword(&valid_subwords);
-        assert!(first_subword.is_none());
-    }
-
-    #[test]
-    fn test_first_subword_returns_none_if_valid_word_is_longer_than_word() {
-        let word = Word::from(1);
-        let first = Word::from(vec![1, 2]);
-        let valid_subwords = vec![&first];
-        let first_subword = word.first_subword(&valid_subwords);
-        assert!(first_subword.is_none());
-    }
-
-    #[test]
-    fn test_first_subword_for_word_of_usize() {
-        let word: Word<i32> = Word::from(vec![1, 2, 3, 4, 5]);
-        let valid_subword: Word<i32> = Word::from(vec![1, 2]);
-        let valid_subwords = vec![&valid_subword];
-        let first_subword = word.first_subword(&valid_subwords);
-        assert!(first_subword.is_some());
-        assert_eq!(first_subword.unwrap(), &valid_subword[..]);
-    }
-
-    #[test]
-    fn test_subwords_on_empty_word() {
-        let word: Word<usize> = Word::new();
-        let first = Word::from(1);
-        let second = Word::from(2);
-        let third = Word::from(3);
-        let valid_subwords = vec![&first, &second, &third];
-        let subwords = word.subwords(&valid_subwords);
-        assert!(subwords.is_empty());
-    }
-
-    #[test]
-    fn test_subwords_with_empty_valid_word() {
-        let numbers = vec![1, 2, 3];
-        let word: Word<i32> = Word::from(&numbers);
-        let first = Word::new();
-        let valid_subwords = vec![&first];
-        let subwords = word.subwords(&valid_subwords);
-        assert!(subwords.is_empty());
-    }
-
-    #[test]
-    fn test_subwords_on_word_of_usize() {
-        let numbers = vec![1, 2, 3, 4, 5];
-        let word: Word<i32> = Word::from(&numbers);
-        let first = Word::from(&numbers[3..]);
-        let second = Word::from(&numbers[..3]);
-        let valid_subwords = vec![&first, &second];
-        let subwords = word.subwords(&valid_subwords);
-        assert_eq!(subwords, vec![&numbers[..3], &numbers[3..]]);
-    }
-
-    #[test]
-    fn test_first_subword_context_free() {
-        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
-
-        let first = Word::from_iter([1, 2]);
-        let second = Word::from_iter([3]);
-        let third = Word::from_iter([4, 5]);
-        let fourth = Word::from_iter([6]);
-
-        let dictionary: Dictionary<usize, ()> = Dictionary::with_words([first.clone(), second, third, fourth]);
-
-        let valid_subwords: Vec<&Word<_>> = dictionary.keys().collect();
-        let first_valid_word = word_of_numbers.first_subword(&valid_subwords);
-        assert!(first_valid_word.is_some());
-        assert_eq!(first_valid_word.unwrap(), &first[..]);
-    }
-
-    #[test]
-    fn test_first_subword_context_dependent() {
-        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
-
-        let first = Word::from_iter([1, 2]);
-        let second = Word::from_iter([1, 2, 3]);
-
-        let dictionary: Dictionary<usize, ()> = Dictionary::with_words([first, second.clone()]);
-
-        let valid_subwords: Vec<&Word<_>> = dictionary.keys().collect();
-        let first_valid_word = word_of_numbers.first_subword(&valid_subwords);
-        assert!(first_valid_word.is_some());
-        assert_eq!(first_valid_word.unwrap(), &second[..]);
-    }
-
-    #[test]
-    fn test_subwords_context_free() {
-        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
-
-        let first = Word::from_iter([1, 2]);
-        let second = Word::from_iter([3]);
-        let third = Word::from_iter([4, 5]);
-        let fourth = Word::from_iter([6]);
-
-        let dictionary: Dictionary<usize, ()> = Dictionary::with_words([first.clone(), second.clone(), third.clone(), fourth.clone()]);
-
-        let valid_subwords: Vec<&Word<_>> = dictionary.keys().collect();
-        let valid_words = word_of_numbers.subwords(&valid_subwords);
-        assert_eq!(valid_words, vec![&first[..], &second[..], &third[..]]);
-    }
-
-    #[test]
-    fn test_subwords_context_dependent() {
-        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
-
-        let first = Word::from_iter([1, 2]);
-        let second = Word::from_iter([1, 2, 3]);
-        let third = Word::from_iter([4, 5]);
-        let fourth = Word::from_iter([6]);
-
-        let dictionary: Dictionary<usize, ()> = Dictionary::with_words([first.clone(), second.clone(), third.clone(), fourth.clone()]);
-
-        let valid_subwords: Vec<&Word<_>> = dictionary.keys().collect();
-        let valid_words = word_of_numbers.subwords(&valid_subwords);
-        assert_eq!(valid_words, vec![&second[..], &third[..]]);
-    }
-
-    #[test]
-    fn test_apply_replacements() {
-        let initial: Word<char> = Word::from("f--f--f");
-        let dictionary: Dictionary<char, ()> = Dictionary::with_words_and_entries([
-            (Word::from("f"), DictionaryEntry::new().with_replacement(Word::from("f+f--f+f"))),
-            (Word::from("+"), DictionaryEntry::new()),
-            (Word::from("-"), DictionaryEntry::new()),
-        ]);
-        let result = initial.apply_replacements(&dictionary);
-        assert_eq!(result, Word::from("f+f--f+f--f+f--f+f--f+f--f+f"));
-    }
-
-    #[test]
-    fn test_apply_replacement_rules_functions() {
-        // Note to myself: If you create function pointers (and closures) on the fly,
-        // instead of putting them into first, second and third, this will not work,
-        // since the assertion does not hold, because the call to apply replacement rules
-        // will not detect a replacement for  |x| x+3, since two instances of |x| x+3 are 
-        // NOT considered the same if they are created on the fly, e.g. they will have different
-        // memory addresses, even though they describe the same function.
-        // Thus, you need to save your closures / function pointers in a variable first, and then
-        // use the variable subsequently (which is not a problem since function pointers are copy).
-        // This ensures that you really get the same memory address everywhere and two "instances" 
-        // are considered equal (since they literally are the same function).
-        let first: fn(i32) -> i32 = |x| x+3;
-        let second: fn(i32) -> i32 = |x| x+1;
-        let third: fn(i32) -> i32 = |x| x*x;
-
-        let word_of_functions: Word<fn(i32) -> i32> = Word::from(first);
-        let dictionary: Dictionary<fn(i32) -> i32, ()> = Dictionary::with_words_and_entries([
-            (Word::from(first), DictionaryEntry::new().with_replacement(Word::from_iter([second, third, first, third, second]))),
-        ]);
-        let result = word_of_functions.apply_replacements(&dictionary);
-        assert_eq!(result, Word::from_iter([second, third, first, third, second]));
-    }
+//    #[test]
+//    fn test_display() {
+//        let numbers = vec![1, 2, 3, 4, 5];
+//        let chars = vec!['a', 'b', 'c', 'd', 'e'];
+//
+//        let word_of_numbers: Word<usize> = numbers.into();
+//        let word_of_chars: Word<char> = chars.into();
+//
+//        assert_eq!(format!("{}", word_of_numbers), "12345");
+//        assert_eq!(format!("{}", word_of_chars), "abcde");
+//    }
+//
+//    #[test]
+//    fn test_first_subword_returns_none_for_empty_word() {
+//        let word = Word::new();
+//        let first = Word::from(1);
+//        let second = Word::from(2);
+//        let valid_subwords = vec![&first, &second];
+//        let first_subword = word.first_subword(&valid_subwords);
+//        assert!(first_subword.is_none());
+//    }
+//
+//    #[test]
+//    fn test_first_subword_returns_none_if_valid_word_is_empty() {
+//        let word = Word::from(1);
+//        let first = Word::new();
+//        let valid_subwords = vec![&first];
+//        let first_subword = word.first_subword(&valid_subwords);
+//        assert!(first_subword.is_none());
+//    }
+//
+//    #[test]
+//    fn test_first_subword_returns_none_if_valid_word_is_longer_than_word() {
+//        let word = Word::from(1);
+//        let first = Word::from(vec![1, 2]);
+//        let valid_subwords = vec![&first];
+//        let first_subword = word.first_subword(&valid_subwords);
+//        assert!(first_subword.is_none());
+//    }
+//
+//    #[test]
+//    fn test_first_subword_for_word_of_usize() {
+//        let word: Word<i32> = Word::from(vec![1, 2, 3, 4, 5]);
+//        let valid_subword: Word<i32> = Word::from(vec![1, 2]);
+//        let valid_subwords = vec![&valid_subword];
+//        let first_subword = word.first_subword(&valid_subwords);
+//        assert!(first_subword.is_some());
+//        assert_eq!(first_subword.unwrap(), &valid_subword[..]);
+//    }
+//
+//    #[test]
+//    fn test_subwords_on_empty_word() {
+//        let word: Word<usize> = Word::new();
+//        let first = Word::from(1);
+//        let second = Word::from(2);
+//        let third = Word::from(3);
+//        let valid_subwords = vec![&first, &second, &third];
+//        let subwords = word.subwords(&valid_subwords);
+//        assert!(subwords.is_empty());
+//    }
+//
+//    #[test]
+//    fn test_subwords_with_empty_valid_word() {
+//        let numbers = vec![1, 2, 3];
+//        let word: Word<i32> = Word::from(&numbers);
+//        let first = Word::new();
+//        let valid_subwords = vec![&first];
+//        let subwords = word.subwords(&valid_subwords);
+//        assert!(subwords.is_empty());
+//    }
+//
+//    #[test]
+//    fn test_subwords_on_word_of_usize() {
+//        let numbers = vec![1, 2, 3, 4, 5];
+//        let word: Word<i32> = Word::from(&numbers);
+//        let first = Word::from(&numbers[3..]);
+//        let second = Word::from(&numbers[..3]);
+//        let valid_subwords = vec![&first, &second];
+//        let subwords = word.subwords(&valid_subwords);
+//        assert_eq!(subwords, vec![&numbers[..3], &numbers[3..]]);
+//    }
+//
+//    #[test]
+//    fn test_first_subword_context_free() {
+//        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+//
+//        let first = Word::from_iter([1, 2]);
+//        let second = Word::from_iter([3]);
+//        let third = Word::from_iter([4, 5]);
+//        let fourth = Word::from_iter([6]);
+//
+//        let dictionary: Dictionary<usize, ()> = Dictionary::with_words([first.clone(), second, third, fourth]);
+//
+//        let valid_subwords: Vec<&Word<_>> = dictionary.keys().collect();
+//        let first_valid_word = word_of_numbers.first_subword(&valid_subwords);
+//        assert!(first_valid_word.is_some());
+//        assert_eq!(first_valid_word.unwrap(), &first[..]);
+//    }
+//
+//    #[test]
+//    fn test_first_subword_context_dependent() {
+//        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+//
+//        let first = Word::from_iter([1, 2]);
+//        let second = Word::from_iter([1, 2, 3]);
+//
+//        let dictionary: Dictionary<usize, ()> = Dictionary::with_words([first, second.clone()]);
+//
+//        let valid_subwords: Vec<&Word<_>> = dictionary.keys().collect();
+//        let first_valid_word = word_of_numbers.first_subword(&valid_subwords);
+//        assert!(first_valid_word.is_some());
+//        assert_eq!(first_valid_word.unwrap(), &second[..]);
+//    }
+//
+//    #[test]
+//    fn test_subwords_context_free() {
+//        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+//
+//        let first = Word::from_iter([1, 2]);
+//        let second = Word::from_iter([3]);
+//        let third = Word::from_iter([4, 5]);
+//        let fourth = Word::from_iter([6]);
+//
+//        let dictionary: Dictionary<usize, ()> = Dictionary::with_words([first.clone(), second.clone(), third.clone(), fourth.clone()]);
+//
+//        let valid_subwords: Vec<&Word<_>> = dictionary.keys().collect();
+//        let valid_words = word_of_numbers.subwords(&valid_subwords);
+//        assert_eq!(valid_words, vec![&first[..], &second[..], &third[..]]);
+//    }
+//
+//    #[test]
+//    fn test_subwords_context_dependent() {
+//        let word_of_numbers = Word::from_iter([1, 2, 3, 4, 5]);
+//
+//        let first = Word::from_iter([1, 2]);
+//        let second = Word::from_iter([1, 2, 3]);
+//        let third = Word::from_iter([4, 5]);
+//        let fourth = Word::from_iter([6]);
+//
+//        let dictionary: Dictionary<usize, ()> = Dictionary::with_words([first.clone(), second.clone(), third.clone(), fourth.clone()]);
+//
+//        let valid_subwords: Vec<&Word<_>> = dictionary.keys().collect();
+//        let valid_words = word_of_numbers.subwords(&valid_subwords);
+//        assert_eq!(valid_words, vec![&second[..], &third[..]]);
+//    }
+//
+//    #[test]
+//    fn test_apply_replacements() {
+//        let initial: Word<char> = Word::from("f--f--f");
+//        let dictionary: Dictionary<char, ()> = Dictionary::with_words_and_entries([
+//            (Word::from("f"), DictionaryEntry::new().with_replacement(Word::from("f+f--f+f"))),
+//            (Word::from("+"), DictionaryEntry::new()),
+//            (Word::from("-"), DictionaryEntry::new()),
+//        ]);
+//        let result = initial.apply_replacements(&dictionary);
+//        assert_eq!(result, Word::from("f+f--f+f--f+f--f+f--f+f--f+f"));
+//    }
+//
+//    #[test]
+//    fn test_apply_replacement_rules_functions() {
+//        // Note to myself: If you create function pointers (and closures) on the fly,
+//        // instead of putting them into first, second and third, this will not work,
+//        // since the assertion does not hold, because the call to apply replacement rules
+//        // will not detect a replacement for  |x| x+3, since two instances of |x| x+3 are 
+//        // NOT considered the same if they are created on the fly, e.g. they will have different
+//        // memory addresses, even though they describe the same function.
+//        // Thus, you need to save your closures / function pointers in a variable first, and then
+//        // use the variable subsequently (which is not a problem since function pointers are copy).
+//        // This ensures that you really get the same memory address everywhere and two "instances" 
+//        // are considered equal (since they literally are the same function).
+//        let first: fn(i32) -> i32 = |x| x+3;
+//        let second: fn(i32) -> i32 = |x| x+1;
+//        let third: fn(i32) -> i32 = |x| x*x;
+//
+//        let word_of_functions: Word<fn(i32) -> i32> = Word::from(first);
+//        let dictionary: Dictionary<fn(i32) -> i32, ()> = Dictionary::with_words_and_entries([
+//            (Word::from(first), DictionaryEntry::new().with_replacement(Word::from_iter([second, third, first, third, second]))),
+//        ]);
+//        let result = word_of_functions.apply_replacements(&dictionary);
+//        assert_eq!(result, Word::from_iter([second, third, first, third, second]));
+//    }
 }

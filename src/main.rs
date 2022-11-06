@@ -1,6 +1,6 @@
 extern crate allegro;
 
-//mod word;
+mod word;
 //mod semantics;
 //mod dictionary;
 //mod fractal;
