@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display};
-use std::ops::{Deref, DerefMut, Index, Range, RangeFrom, RangeTo, RangeFull, RangeInclusive, RangeToInclusive, IndexMut};
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::slice::SliceIndex;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -65,12 +65,41 @@ impl<T> Word<T>
         self.0.is_empty()
     }
 
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
         self.into_iter()
     }
 
     pub fn iter_mut(&mut self) -> <&mut Self as IntoIterator>::IntoIter {
         self.into_iter()
+    }
+
+    pub fn contains_letter(&self, letter: &T) -> bool
+    where
+        T: PartialEq,
+    {
+        self.0.iter().any(|item| item == letter)
+    }
+
+    pub fn contains_all_letters(&self, letters: &[T]) -> bool
+    where
+        T: PartialEq,
+    {
+        let mut letters_contained = true;
+        for letter in letters {
+            letters_contained = letters_contained && self.contains_letter(letter);
+        }
+        return letters_contained;
+    }
+
+    pub fn contains_any_letter_besides(&self, letters: &[T]) -> bool
+    where
+        T: PartialEq,
+    {
+        self.0.iter().any(|elem| letters.iter().any(|letter| letter != elem))
     }
 
     //pub fn first_subword(&self, valid_subwords: &[&Word<T>]) -> Option<&[T]>
@@ -136,7 +165,7 @@ impl<T> Word<T>
 
         let mut is_contained = false;
         for (index, elem) in self.iter().enumerate() {
-            if elem == &subword[0] && &self[index..index + subword.len()] == subword {
+            if elem == &subword[0] && index + subword.len() <= self.len() && &self[index..index + subword.len()] == subword {
                 is_contained = true;
             }
         }
@@ -149,7 +178,7 @@ impl<T> Word<T>
         T: PartialEq + Eq,
     {
         for (index, elem) in self.iter().enumerate() {
-            if elem == &subword[0] && &self[index..index + subword.len()] == subword {
+            if elem == &subword[0] && index + subword.len() <= self.len() && &self[index..index + subword.len()] == subword {
                 return Some(&self[index..index+subword.len()]);
             }
         }
@@ -165,7 +194,7 @@ impl<T> Word<T>
             // Check what happens when we slice outside of self.
             // Do we get an error?
             // We might need an additional check: index + subword.len() <= self.len()
-            if elem == &subword[0] && &self[index..index + subword.len()] == subword {
+            if elem == &subword[0] && index + subword.len() <= self.len() && &self[index..index + subword.len()] == subword {
                 occurrences.push(&self[index..index + subword.len()]);
             }
         }
@@ -312,7 +341,7 @@ where
     T: Clone,
 {
     fn from(letters: &[T]) -> Self {
-        Word(letters.to_vec())
+        Word(letters.to_owned())
     }
 }
 
@@ -442,6 +471,27 @@ mod tests {
         assert_eq!(all.len(), 2);
         assert_eq!(all[0], &word[0..5]);
         assert_eq!(all[1], &word[11..]);
+    }
+
+    #[test]
+    fn break_get_first_occurence_of_subword() {
+        let content = vec!['w', 'e', 'l', 't', ' ', 'h', 'a', 'l'];
+        let subword = ['h', 'a', 'l', 'l', 'o'];
+        let word = Word::new(content);
+        let first = word.get_first_occurence_of_subword(&subword);
+        assert!(first.is_none());
+    }
+
+    #[test]
+    fn break_get_all_occurences_of_subword() {
+        let content = vec!['h', 'a', 'l', 'l', 'o', ' ', 'w', 'e', 'l', 't', ' ', 'h', 'a', 'l'];
+        let subword = ['h', 'a', 'l', 'l', 'o'];
+        let word = Word::new(content);
+        let all = word.get_all_occurrences_of_subword(&subword);
+        assert!(all.is_some());
+        let all = all.unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0], &word[0..5]);
     }
 //    #[test]
 //    fn test_display() {

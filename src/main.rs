@@ -1,6 +1,7 @@
 extern crate allegro;
 
 mod word;
+mod grammar;
 //mod semantics;
 //mod dictionary;
 //mod fractal;
@@ -19,6 +20,8 @@ use coordinates::ScreenPosition;
 
 mod check_this;
 use check_this::*;
+
+use word::Word;
 
 //use common_fractals::*;
 //use tryout::*;
@@ -458,26 +461,23 @@ allegro_main!
     queue.register_event_source(timer.get_event_source());
     queue.register_event_source(core.get_keyboard_event_source().unwrap());
 
-    let first_word = Word::new(
+    let first_word: Word<MyFirstLetter> = Word::from(
         &[
             MyFirstLetter::Forward {length: 1.0f32},
             MyFirstLetter::TurnLeft {angle: 1.0f32},
             MyFirstLetter::TurnRight {angle: 1.0f32},
-        ]
+        ][..]
     );
-    let second_word = Word::new(
+    let second_word: Word<MySecondLetter> = Word::from(
         &[
             MySecondLetter::Forward {length: 0.5f32},
             MySecondLetter::TurnLeft {angle: 0.5f32},
             MySecondLetter::TurnRight {angle: 0.5f32},
-        ]
+        ][..]
     );
 
     println!("{}", first_word);
     println!("{}", second_word);
-
-    let mut holder = WordHolder::new(Box::new(first_word));
-    holder.change_word(Box::new(second_word));
 
     let mut redraw = true;
     timer.start();
